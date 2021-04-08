@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Project: LOD Example </title>
+    
+    <link type="text/css" rel="stylesheet" href="rasterize.css">
+
+    <script type="text/javascript" src="gl-matrix.js"></script>
+    <script type="text/javascript" src="rasterize3.js"></script>
+
+    <style>
+      body {background-color: rgb(30,30,30);}
+      #cc {
+        position: relative;
+        top: 0;
+        left: 0;
+        margin: 30px;
+      }
+      .container {
+        position: relative;
+        color: white;
+      }
+
+      h1 {
+        position: relative;
+        color: white;
+        top: 10px;
+        left: 30px;
+      }
+ 
+      #text {
+        position: absolute;
+        left: 0px;
+        top: 0px;
+        z-index: 10;
+      }
+    </style>
+  </head>
+
+  <body onload="main();">
+
+    <h1>LOD Example</h1>
+    
+    <div id= "cc">
+
+      <canvas id="myImageCanvas" width="600" height="600"></canvas>
+      <canvas id="myWebGLCanvas" width="600" height="600" style="border: 10px solid black;"></canvas>
+       
+    </div> 
+
+    <!-- <div class="container">
+
+      <canvas id="canvas" width="400" height="400"></canvas>
+      <canvas id="text" width="400" height="400"></canvas>
+      
+   </div> -->
+
+  </body>
+</html>
