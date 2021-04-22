@@ -40,6 +40,10 @@ var normalsBuffer = [];
 var uvBuffer = [];
 var textures = [];
 var positions = [];
+var normals = [];
+// Edge Collapse
+var edges = [];
+var triangleObjs = [];
 
 // Ground
 var groundPositionBuffer = [];
@@ -56,8 +60,13 @@ var detailNormalsBuffer = [];
 var detailUVBuffer = [];
 var detailTexture = [];
 
-var mountains = 100;
+// Test Variables
+var collapse = false;
+
+// More For Mountains
+var mountains = 1;
 var triangles = 136 * mountains;
+var edgeCount = 224 * mountains;
 
 function handleKeyDown(event) {
     
@@ -71,50 +80,21 @@ function handleKeyDown(event) {
     
     switch (event.code) {
         
-            
         // view change
         case "ArrowLeft": // translate view left, rotate left with shift
-        	//Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,viewDelta)); 
             Center = vec3.add(Center,Center,vec3.scale(temp,viewRight,viewDelta));
             Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,viewDelta)); 
             lightPosition = vec3.add(lightPosition,lightPosition,vec3.scale(temp,viewRight,viewDelta)); 
-            //lightPosition = vec3(Center.x, 30, Center.z - 1);
-            //lightPosition = vec3.add(Center,Center,vec3.scale(temp,viewRight,viewDelta));
-            //lightPosition = vec3.add(Center,Center, temp);
-            //lightPosition = vec3(lightPosition.x, 30, lightPosition.z);
-            //print(lightPosition);
-            //if (!event.getModifierState("Shift"))
             break;
-        case "ArrowRight": // translate view right, rotate right with shift
-        	//Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,-viewDelta)); 
+        case "ArrowRight": // translate view right, rotate right with shift 
             Center = vec3.add(Center,Center,vec3.scale(temp,viewRight,-viewDelta));
             Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,-viewDelta)); 
             lightPosition = vec3.add(lightPosition,lightPosition,vec3.scale(temp,viewRight,-viewDelta)); 
-            //lightPosition = vec3(Center.x, 30, Center.z - 1);
-            //lightPosition = vec3.add(Center,Center,vec3.scale(temp,viewRight,-viewDelta));
-            //lightPosition = vec3.add(Center,Center, temp);
-            //lightPosition = vec3(lightPosition.x, 30, lightPosition.z);
-            //print(lightPosition);
-            //lightPosition = vec3(Center.x, 30, Center.z - 1);
-            //if (!event.getModifierState("Shift"))
             break;
         case "ArrowDown": // translate view backward, rotate up with shift
-            /*if (event.getModifierState("Shift")) {
                 Eye = vec3.add(Eye,Eye,vec3.scale(temp,lookAt,-viewDelta));
                 Center = vec3.add(Center,Center,vec3.scale(temp,lookAt,-viewDelta));
-                //lightPosition = vec3.add(Center,Center,vec3.scale(temp,lookAt,-viewDelta));
-                //lightPosition = vec3(lightPosition.x, 30, lightPosition.z - 1);
-                lightPosition = vec3(Center.x, 30, Center.z - 1);
-            } else { */
-                Eye = vec3.add(Eye,Eye,vec3.scale(temp,lookAt,-viewDelta));
-                Center = vec3.add(Center,Center,vec3.scale(temp,lookAt,-viewDelta));
-                //lightPosition = vec3.add(Center,Center, temp);
-                //lightPosition = vec3.add(Center,Center,vec3.scale(temp,lookAt,-viewDelta));
-                //lightPosition = new vec3(lightPosition.x, 30, lightPosition.z + 1);
                 lightPosition = vec3.add(lightPosition, lightPosition, vec3.scale(temp,lookAt,-viewDelta));
-                //print(lightPosition);
-                //lightPosition = vec3(Center.x, 30, Center.z - 1);
-            //} // end if shift not pressed
             break;
         case "ArrowUp": // translate view forward, rotate down with shift
                 Eye = vec3.add(Eye,Eye,vec3.scale(temp,lookAt,viewDelta));
@@ -127,9 +107,11 @@ function handleKeyDown(event) {
             lightPosition = vec3.fromValues(22,7.5,5.5);
             Up = vec3.copy(Up,defaultUp);
             break;   
+        case "Space":
+            collapse = true;
+            break;
     } // end switch
 } // end handleKeyDown
-
 
 // set up the webGL environment
 function setupWebGL() {
@@ -196,15 +178,21 @@ function loadTexture(whichModel,textureFile,texts) {
 // Y: -0.8
 function loadModels() {
 
-	loadGround();
+	//loadGround();
+  var i = 0;
+  var j = 0;
+  var disX = 5;
+  var disZ = 5;
+  loadMountain(0, 20, 6);
+  loadEdges();
+  console.log(triangleObjs);
+  console.log(edges);
 
-	var disX = 5;
-	var disZ = 5;
-	for (var i = 0; i < 10; i++) {
+  /*for (var i = 0; i < 10; i++) {
 		for (var j = 0; j < 10; j++) { 
 			loadMountain((i * 10 + j) * 136, disX + i + j + 0.5 * i + 0.7 * j, disZ + i + 0.7 * i + 0.7 * j - j);
 		}
-	}
+	}*/
 }
 
 function loadGround() {
@@ -267,6 +255,100 @@ function loadGround() {
   	groundBlocks = squares;
 }
 
+function shortestEdge() {
+  var shortestEdge = 100;
+  var shortestEdgeIndex = -1;
+  for (var i = 0; i < edges.length; i++) {
+    if (edges[i].distance < shortestEdge && edges[i].eliminated == 0) {
+      shortestEdge = edges[i].distance;
+      shortestEdgeIndex = i;
+    }
+  }
+  return shortestEdgeIndex;
+}
+ 
+function distance(p1, p2) {
+  return Math.sqrt( Math.pow( (p1[0] - p2[0]) , 2) + Math.pow( (p1[1] - p2[1]) , 2) + Math.pow( (p1[2] - p2[2]) , 2) );
+}
+
+function edgeExists(p1, p2) {
+  var testP1 = p1;
+  var testP2 = p2;
+  for (var i = 0; i < edges.length; i++) {
+    if (edges[i].point1[0] == testP1[0] && edges[i].point1[1] == testP1[1] && edges[i].point1[2] == testP1[2]) {
+      if (edges[i].point2[0] == testP2[0] && edges[i].point2[1] == testP2[1] && edges[i].point2[2] == testP2[2]) {
+        //console.log("here");
+        return i;
+      }
+
+    } else if (edges[i].point1[0] == testP2[0] && edges[i].point1[1] == testP2[1] && edges[i].point1[2] == testP2[2]) {
+      if (edges[i].point2[0] == testP1[0] && edges[i].point2[1] == testP1[1] && edges[i].point2[2] == testP1[2]) {
+        //console.log("here");
+        return i;
+      }
+
+    }
+  } // end for loop
+  return -1;
+}
+
+function loadEdges() {
+
+    var edgeCount = 0;
+    console.log(triangleObjs.length);
+    for (var i = 0; i < triangleObjs.length; i++) {
+
+      var p1 = triangleObjs[i].point1;
+      var p2 = triangleObjs[i].point2;
+      var p3 = triangleObjs[i].point3;
+
+      // edge 1
+      var index1 = edgeExists(p1, p2);
+      if (index1 == -1) {
+        edges[edgeCount] = {
+          point1: p1,
+          point2: p2,
+          distance: distance(p1, p2),
+          triangles: [i],
+          eliminated: 0
+        }
+        edgeCount++;
+      } else {
+        edges[index1].triangles[1] = i;
+      }
+
+      // edge 2
+      var index2 = edgeExists(p2, p3);
+      if (index2 == -1) {
+        edges[edgeCount] = {
+          point1: p2,
+          point2: p3,
+          triangles: [i],
+          distance: distance(p2, p3),
+          eliminated: 0
+        }
+        edgeCount++;
+      } else {
+        edges[index2].triangles[1] = i;
+      }
+
+      var index3 = edgeExists(p1, p3);
+      if (index3 == -1) {
+        edges[edgeCount] = {
+          point1: p1,
+          point2: p3,
+          triangles: [i],
+          distance: distance(p1, p3),
+          eliminated: 0
+        }
+        edgeCount++;
+      } else {
+        edges[index3].triangles[1] = i;
+      }
+
+    } // end for loop
+}
+
 function loadMountain(indexStart, disX, disZ) {
 
   // Pyramid Front
@@ -282,8 +364,6 @@ function loadMountain(indexStart, disX, disZ) {
   var z2 = 0.85;
   var z3 = 0.75;
 
-  var normals = [];
-
   for (var i = 0; i < 136; i++) {
 
   	x1 += disX;
@@ -294,11 +374,18 @@ function loadMountain(indexStart, disX, disZ) {
   	z2 += disZ;
   	z3 += disZ;
 
-    positions[i] = [
+    positions[indexStart + i] = [
       x1,  y1,  z1,
       x2,  y2,  z2,
       x3,  y3,  z3,
     ]
+
+    triangleObjs[indexStart + i] = {
+      point1:[x1,y1,z1],
+      point2:[x2,y2,z2],
+      point3:[x3,y3,z3],
+      eliminated:0,
+    };
 
     var Ux = x2 - x1;
     var Uy = y2 - y1;
@@ -312,7 +399,7 @@ function loadMountain(indexStart, disX, disZ) {
     var Ny = Math.abs((Uz * Vx) - (Ux * Vz));
     var Nz = Math.abs((Ux * Vy) - (Uy * Vx));
 
-    normals[i] = [
+    normals[indexStart + i] = [
       Nx, Ny, Nz,
       Nx, Ny, Nz,
       Nx, Ny, Nz,
@@ -2358,11 +2445,11 @@ function loadMountain(indexStart, disX, disZ) {
 
     positionBuffer[indexStart + i] = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[indexStart + i]);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions[i]), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions[indexStart + i]), gl.STATIC_DRAW);
 
     normalsBuffer[indexStart + i] = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, normalsBuffer[indexStart + i]);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals[i]), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals[indexStart + i]), gl.STATIC_DRAW);
 
     verticesBuffer[indexStart + i] = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, verticesBuffer[indexStart + i]);
@@ -2594,49 +2681,186 @@ function renderModels() {
     // Render Mountains
     for (var i = 0; i < triangles; i++) {
 
-      gl.uniform3fv(lightPositionULoc,lightPosition); // pass in the light's position  
-      mat4.multiply(hpvmMatrix,hpvMatrix,mMatrix); // handedness * project * view * model
-      gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in the m matrix
-      gl.uniformMatrix4fv(pvmMatrixULoc, false, hpvmMatrix); // pass in the hpvm matrix
-      gl.uniform3fv(lightPositionULoc,lightPosition); // pass in the light's position
+      if (triangleObjs[i].eliminated == 0) {
+        gl.uniform3fv(lightPositionULoc,lightPosition); // pass in the light's position  
+        mat4.multiply(hpvmMatrix,hpvMatrix,mMatrix); // handedness * project * view * model
+        gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in the m matrix
+        gl.uniformMatrix4fv(pvmMatrixULoc, false, hpvmMatrix); // pass in the hpvm matrix
+        gl.uniform3fv(lightPositionULoc,lightPosition); // pass in the light's position
 
 
-      var ambient = [0.3,0.3,0.3];
-      var diffuse = [0.54,0.27,0.07];
-      var specular = [0.3,0.3,0.3];
-      var n = 1;
+        var ambient = [0.3,0.3,0.3];
+        var diffuse = [0.54,0.27,0.07];
+        var specular = [0.3,0.3,0.3];
+        var n = 1;
 
-      if (i%136 < 12) {
-      	diffuse = [1.0,1.0,1.0];
+        if (i%136 < 12) {
+          diffuse = [1.0,1.0,1.0];
+        } 
+
+        if (i%136 > 47) {
+          diffuse = [0.0,0.79,0.34];
+        }
+ 
+        gl.uniform3fv(ambientULoc, ambient); // pass in the ambient reflectivity
+        gl.uniform3fv(diffuseULoc, diffuse); // pass in the diffuse reflectivity
+        gl.uniform3fv(specularULoc, specular); // pass in the specular reflectivity
+        gl.uniform1f(shininessULoc, n); // pass in the specular exponent
+        gl.uniform1i(usingTextureULoc,false); // whether the set uses texture
+        gl.activeTexture(gl.TEXTURE0); // bind to active texture 0 (the first)
+        gl.bindTexture(gl.TEXTURE_2D, textures[i]); // bind the set's texture
+        gl.uniform1i(textureULoc, 0); // pass in the texture and active texture 0
+        
+        // position, normal and uv buffers: activate and feed into vertex shader
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[i]); // activate position
+        gl.vertexAttribPointer(vPosAttribLoc,3,gl.FLOAT,false,0,0); // feed
+        gl.bindBuffer(gl.ARRAY_BUFFER,normalsBuffer[i]); // activate normal
+        gl.vertexAttribPointer(vNormAttribLoc,3,gl.FLOAT,false,0,0); // feed
+        gl.bindBuffer(gl.ARRAY_BUFFER,uvBuffer[i]); // activate uv
+        gl.vertexAttribPointer(vUVAttribLoc,2,gl.FLOAT,false,0,0); // feed
+
+        // triangle buffer: activate and render
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, verticesBuffer[i]); // activate
+        gl.drawElements(gl.TRIANGLES,3,gl.UNSIGNED_SHORT,0); // render
+      }
+    } 
+
+    if (collapse) {
+      var edgeIndex = shortestEdge();
+      console.log(edgeIndex);
+
+      for (var i = 0; i < edges[edgeIndex].triangles.length; i++) {
+        triangleObjs[edges[edgeIndex].triangles[i]].eliminated = 1;
       } 
 
-      if (i%136 > 47) {
-      	diffuse = [0.0,0.79,0.34];
+      //var point1 = edges[edgeIndex].point1;
+      //var point2 = edges[edgeIndex].point2;
+
+      console.log("point1-" + edges[edgeIndex].point1);
+      console.log("point2-" + edges[edgeIndex].point2);
+      console.log("edgeIndex-" + edgeIndex);
+      console.log(edges[edgeIndex]);
+
+      var hasP1 = false;
+      for (var i = 0; i < edges.length; i++) {
+        if (edges[i].point1[0] == edges[edgeIndex].point1[0] && edges[i].point1[1] == edges[edgeIndex].point1[1] && edges[i].point1[2] == edges[edgeIndex].point1[2] && i != edgeIndex ) {
+          console.log("i-"+i+" edgeIndex-"+edgeIndex);
+          console.log(edges[i]);
+          console.log(edges[i]["point1"]);
+          console.log(edges[edgeIndex].point1);
+          edges[i].point1 = edges[edgeIndex].point2;
+          //edges[i].point1[0] = point2[0];
+          //edges[i].point1[1] = point2[1];
+          //edges[i].point1[2] = point2[2]; 
+          console.log("edges[i].point1-" + edges[i].point1);
+          console.log(edges[i]);
+          console.log(i);
+          hasP1 == true;
+          edges[i].distance = distance(edges[i].point1, edges[i].point2);
+        }
+        else if (edges[i].point2[0] == edges[edgeIndex].point1[0] && edges[i].point2[1] == edges[edgeIndex].point1[1] && edges[i].point1[2] == edges[edgeIndex].point1[2] && i != edgeIndex) {
+          console.log(edges[i]);
+          edges[i].point2 = edges[edgeIndex].point2;
+          //edges[i].point2[0] = point2[0];
+          //edges[i].point2[1] = point2[1];
+          //edges[i].point2[2] = point2[2]; 
+          console.log("edges[i].point2-" + edges[i].point2);
+          console.log(edges[i]);
+          hasP1 == true;
+          edges[i].distance = distance(edges[i].point1, edges[i].point2);
+        }
       }
- 
-      gl.uniform3fv(ambientULoc, ambient); // pass in the ambient reflectivity
-      gl.uniform3fv(diffuseULoc, diffuse); // pass in the diffuse reflectivity
-      gl.uniform3fv(specularULoc, specular); // pass in the specular reflectivity
-      gl.uniform1f(shininessULoc, n); // pass in the specular exponent
-      gl.uniform1i(usingTextureULoc,false); // whether the set uses texture
-      gl.activeTexture(gl.TEXTURE0); // bind to active texture 0 (the first)
-      gl.bindTexture(gl.TEXTURE_2D, textures[i]); // bind the set's texture
-      gl.uniform1i(textureULoc, 0); // pass in the texture and active texture 0
-        
-      // position, normal and uv buffers: activate and feed into vertex shader
-      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[i]); // activate position
-      gl.vertexAttribPointer(vPosAttribLoc,3,gl.FLOAT,false,0,0); // feed
-      gl.bindBuffer(gl.ARRAY_BUFFER,normalsBuffer[i]); // activate normal
-      gl.vertexAttribPointer(vNormAttribLoc,3,gl.FLOAT,false,0,0); // feed
-      gl.bindBuffer(gl.ARRAY_BUFFER,uvBuffer[i]); // activate uv
-      gl.vertexAttribPointer(vUVAttribLoc,2,gl.FLOAT,false,0,0); // feed
 
-      // triangle buffer: activate and render
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, verticesBuffer[i]); // activate
-      gl.drawElements(gl.TRIANGLES,3,gl.UNSIGNED_SHORT,0); // render
+      /*if (!hasP1) {
+        for (var i = 0; i < edges.length; i++) {
+          if (edges[i].point1[0] == point2[0] && edges[i].point1[1] == point2[1] && edges[i].point1[2] == point2[2] && i != edgeIndex ) {
+            edges[i].point1 = point1; 
+            console.log(edges[i].point1);
+            hasP1 == true;
+            edges[i].distance = distance(edges[i].point1, edges[i].point2);
+          }
+          if (edges[i].point2[0] == point2[0] && edges[i].point2[1] == point2[1] && edges[i].point1[2] == point2[2] && i != edgeIndex) {
+            edges[i].point2 = point1;
+            console.log(edges[i].point2);
+            hasP1 == true;
+            edges[i].distance = distance(edges[i].point1, edges[i].point2);
+          }
+        }
 
-    } 
-}
+        for (var i = 0; i < triangleObjs.length; i++) {
+          var edited = false;
+          if (triangleObjs[i].point1[0] == point2[0] && triangleObjs[i].point1[1] == point2[1] && triangleObjs[i].point2[2] == point2[2] && triangleObjs.eliminated == false) {
+            triangleObjs[i].point1 = point1;
+            positions[i][0] = point1[0];
+            positions[i][1] = point1[1];
+            positions[i][2] = point1[2];
+            edited = true;
+          }
+          if (triangleObjs[i].point2[0] == point2[0] && triangleObjs[i].point2[1] == point2[1] && triangleObjs[i].point2[2] == point2[2]) {
+            triangleObjs[i].point2 = point1;
+            positions[i][3] = point1[0];
+            positions[i][4] = point1[1];
+            positions[i][5] = point1[2];
+            edited = true;
+          }
+          if (triangleObjs[i].point3[0] == point2[0] && triangleObjs[i].point3[1] == point2[1] && triangleObjs[i].point3[2] == point2[2]) {
+            triangleObjs[i].point3 = point1;
+            positions[i][6] = point1[0];
+            positions[i][7] = point1[1];
+            positions[i][8] = point1[2];
+            edited = true;
+          }
+          if (edited) {
+            console.log("t-" + i);
+            positionBuffer[i] = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[i]);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions[i]), gl.STATIC_DRAW);
+          }
+        } 
+
+      } else {*/
+        for (var i = 0; i < triangleObjs.length; i++) {
+          var edited = false;
+          if (triangleObjs[i].point1[0] == edges[edgeIndex].point1[0] && triangleObjs[i].point1[1] == edges[edgeIndex].point1[1] && triangleObjs[i].point1[2] == edges[edgeIndex].point1[2] && triangleObjs.eliminated == false) {
+            triangleObjs[i].point1 = edges[edgeIndex].point2;
+            positions[i][0] = edges[edgeIndex].point2[0];
+            positions[i][1] = edges[edgeIndex].point2[1];
+            positions[i][2] = edges[edgeIndex].point2[2];
+            edited = true;
+          }
+          if (triangleObjs[i].point2[0] == edges[edgeIndex].point1[0] && triangleObjs[i].point2[1] == edges[edgeIndex].point1[1] && triangleObjs[i].point2[2] == edges[edgeIndex].point1[2]) {
+            triangleObjs[i].point2 = edges[edgeIndex].point2;
+            positions[i][3] = edges[edgeIndex].point2[0];
+            positions[i][4] = edges[edgeIndex].point2[1];
+            positions[i][5] = edges[edgeIndex].point2[2];
+            edited = true;
+          }
+          if (triangleObjs[i].point3[0] ==  edges[edgeIndex].point1[0] && triangleObjs[i].point3[1] == edges[edgeIndex].point1[1] && triangleObjs[i].point3[2] == edges[edgeIndex].point1[2]) {
+            triangleObjs[i].point3 = edges[edgeIndex].point2;
+            positions[i][6] = edges[edgeIndex].point2[0];
+            positions[i][7] = edges[edgeIndex].point2[1];
+            positions[i][8] = edges[edgeIndex].point2[2];
+            edited = true;
+          }
+          if (edited) {
+            console.log("t-" + i);
+            positionBuffer[i] = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[i]);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions[i]), gl.STATIC_DRAW);
+          }
+        } 
+      //}
+      edges[edgeIndex].eliminated = 1;        
+      collapse = false;    
+    }
+  }
+    /*positions[0][4] = 1.00;
+
+        positionBuffer[0] = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[0]);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions[0]), gl.STATIC_DRAW);
+        collapse = false; */ 
+//}
 
 /* MAIN -- HERE is where execution begins after window load */
 
