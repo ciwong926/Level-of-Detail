@@ -62,11 +62,17 @@ var detailTexture = [];
 
 // Test Variables
 var collapse = false;
+var undo = false;
 
 // More For Mountains
 var mountains = 1;
 var triangles = 136 * mountains;
 var edgeCount = 224 * mountains;
+
+var changes = [];
+var elims = [];
+var elimCount = 0;
+var changeCount = 0;
 
 function handleKeyDown(event) {
     
@@ -83,13 +89,13 @@ function handleKeyDown(event) {
         // view change
         case "ArrowLeft": // translate view left, rotate left with shift
             Center = vec3.add(Center,Center,vec3.scale(temp,viewRight,viewDelta));
-            Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,viewDelta)); 
-            lightPosition = vec3.add(lightPosition,lightPosition,vec3.scale(temp,viewRight,viewDelta)); 
+            if (!event.getModifierState("Shift"))
+                Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,viewDelta));
             break;
         case "ArrowRight": // translate view right, rotate right with shift 
             Center = vec3.add(Center,Center,vec3.scale(temp,viewRight,-viewDelta));
-            Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,-viewDelta)); 
-            lightPosition = vec3.add(lightPosition,lightPosition,vec3.scale(temp,viewRight,-viewDelta)); 
+            if (!event.getModifierState("Shift"))
+                Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,-viewDelta));
             break;
         case "ArrowDown": // translate view backward, rotate up with shift
                 Eye = vec3.add(Eye,Eye,vec3.scale(temp,lookAt,-viewDelta));
@@ -107,8 +113,11 @@ function handleKeyDown(event) {
             lightPosition = vec3.fromValues(22,7.5,5.5);
             Up = vec3.copy(Up,defaultUp);
             break;   
-        case "Space":
+        case "KeyA":
             collapse = true;
+            break;
+        case "KeyD":
+            undo = true;
             break;
     } // end switch
 } // end handleKeyDown
@@ -267,23 +276,20 @@ function shortestEdge() {
   return shortestEdgeIndex;
 }
  
-function distance(p1, p2) {
-  return Math.sqrt( Math.pow( (p1[0] - p2[0]) , 2) + Math.pow( (p1[1] - p2[1]) , 2) + Math.pow( (p1[2] - p2[2]) , 2) );
+function distance(p1X, p1Y, p1Z, p2X, p2Y, p2Z) {
+  return Math.sqrt( Math.pow( (p1X - p2X) , 2) + Math.pow( (p1Y - p2Y) , 2) + Math.pow( (p1Z - p2Z) , 2) );
 }
 
-function edgeExists(p1, p2) {
-  var testP1 = p1;
-  var testP2 = p2;
+function edgeExists(p1X, p1Y, p1Z, p2X, p2Y, p2Z) {
+  
   for (var i = 0; i < edges.length; i++) {
-    if (edges[i].point1[0] == testP1[0] && edges[i].point1[1] == testP1[1] && edges[i].point1[2] == testP1[2]) {
-      if (edges[i].point2[0] == testP2[0] && edges[i].point2[1] == testP2[1] && edges[i].point2[2] == testP2[2]) {
-        //console.log("here");
+    if (edges[i].edP1X == p1X && edges[i].edP1Y == p1Y && edges[i].edP1Z == p1Z) {
+      if (edges[i].edP2X == p2X && edges[i].edP2Y == p2Y && edges[i].edP2Z == p2Z) {
         return i;
       }
 
-    } else if (edges[i].point1[0] == testP2[0] && edges[i].point1[1] == testP2[1] && edges[i].point1[2] == testP2[2]) {
-      if (edges[i].point2[0] == testP1[0] && edges[i].point2[1] == testP1[1] && edges[i].point2[2] == testP1[2]) {
-        //console.log("here");
+    } else if (edges[i].edP2X == p1X && edges[i].edP2Y == p1Y && edges[i].edP2Z == p1Z) {
+      if (edges[i].edP1X == p2X && edges[i].edP1Y== p2Y && edges[i].edP1Z == p2Z) {
         return i;
       }
 
@@ -295,57 +301,93 @@ function edgeExists(p1, p2) {
 function loadEdges() {
 
     var edgeCount = 0;
-    console.log(triangleObjs.length);
+    edges = [];
     for (var i = 0; i < triangleObjs.length; i++) {
+      if (triangleObjs[i].eliminated != 1) {
+      var p1X = triangleObjs[i].triP1X;
+      var p1Y = triangleObjs[i].triP1Y;
+      var p1Z = triangleObjs[i].triP1Z;
 
-      var p1 = triangleObjs[i].point1;
-      var p2 = triangleObjs[i].point2;
-      var p3 = triangleObjs[i].point3;
+      var p2X = triangleObjs[i].triP2X;
+      var p2Y = triangleObjs[i].triP2Y;
+      var p2Z = triangleObjs[i].triP2Z;
 
-      // edge 1
-      var index1 = edgeExists(p1, p2);
+      var p3X = triangleObjs[i].triP3X;
+      var p3Y = triangleObjs[i].triP3Y;
+      var p3Z = triangleObjs[i].triP3Z;
+
+      // edge 1 (p1 & p2)
+      var index1 = edgeExists(p1X, p1Y, p1Z, p2X, p2Y, p2Z);
       if (index1 == -1) {
         edges[edgeCount] = {
-          point1: p1,
-          point2: p2,
-          distance: distance(p1, p2),
-          triangles: [i],
+
+          edP1X: p1X,
+          edP1Y: p1Y,
+          edP1Z: p1Z,
+
+          edP2X: p2X,
+          edP2Y: p2Y,
+          edP2Z: p2Z,
+
+          distance: distance(p1X, p1Y, p1Z, p2X, p2Y, p2Z),
+
+          triangle1: i,
+          triangle2: -1,
           eliminated: 0
         }
         edgeCount++;
       } else {
-        edges[index1].triangles[1] = i;
+        edges[index1].triangle2 = i;
       }
 
-      // edge 2
-      var index2 = edgeExists(p2, p3);
+      // edge 2 (p2 & p3)
+      var index2 = edgeExists(p2X, p2Y, p2Z, p3X, p3Y, p3Z);
       if (index2 == -1) {
         edges[edgeCount] = {
-          point1: p2,
-          point2: p3,
-          triangles: [i],
-          distance: distance(p2, p3),
+
+          edP1X: p2X,
+          edP1Y: p2Y,
+          edP1Z: p2Z,
+
+          edP2X: p3X,
+          edP2Y: p3Y,
+          edP2Z: p3Z,
+
+          distance: distance(p2X, p2Y, p2Z, p3X, p3Y, p3Z),
+
+          triangle1: i,
+          triangle2: -1,
           eliminated: 0
         }
         edgeCount++;
       } else {
-        edges[index2].triangles[1] = i;
+        edges[index2].triangle2 = i;
       }
 
-      var index3 = edgeExists(p1, p3);
+      // edge 3 (p1 & p3)
+      var index3 = edgeExists(p1X, p1Y, p1Z, p3X, p3Y, p3Z);
       if (index3 == -1) {
         edges[edgeCount] = {
-          point1: p1,
-          point2: p3,
-          triangles: [i],
-          distance: distance(p1, p3),
+
+          edP1X: p1X,
+          edP1Y: p1Y,
+          edP1Z: p1Z,
+
+          edP2X: p3X,
+          edP2Y: p3Y,
+          edP2Z: p3Z,
+
+          distance: distance(p1X, p1Y, p1Z, p3X, p3Y, p3Z),
+
+          triangle1: i,
+          triangle2: -1,
           eliminated: 0
         }
         edgeCount++;
       } else {
-        edges[index3].triangles[1] = i;
+        edges[index3].triangle2 = i;
       }
-
+      }
     } // end for loop
 }
 
@@ -377,15 +419,21 @@ function loadMountain(indexStart, disX, disZ) {
     positions[indexStart + i] = [
       x1,  y1,  z1,
       x2,  y2,  z2,
-      x3,  y3,  z3,
+      x3,  y3,  z3
     ]
 
     triangleObjs[indexStart + i] = {
-      point1:[x1,y1,z1],
-      point2:[x2,y2,z2],
-      point3:[x3,y3,z3],
       eliminated:0,
-    };
+      triP1X: x1,
+      triP1Y: y1,
+      triP1Z: z1,
+      triP2X: x2,
+      triP2Y: y2,
+      triP2Z: z2,
+      triP3X: x3,
+      triP3Y: y3,
+      triP3Z: z3
+    }
 
     var Ux = x2 - x1;
     var Uy = y2 - y1;
@@ -2190,6 +2238,7 @@ function loadMountain(indexStart, disX, disZ) {
       z3 = 1.13;
     }
 
+
     // Intermediate Front LL0
     if (i == 119) {
       x1 =  -0.30;
@@ -2725,142 +2774,149 @@ function renderModels() {
       }
     } 
 
-    if (collapse) {
-      var edgeIndex = shortestEdge();
-      console.log(edgeIndex);
-
-      for (var i = 0; i < edges[edgeIndex].triangles.length; i++) {
-        triangleObjs[edges[edgeIndex].triangles[i]].eliminated = 1;
-      } 
-
-      //var point1 = edges[edgeIndex].point1;
-      //var point2 = edges[edgeIndex].point2;
-
-      console.log("point1-" + edges[edgeIndex].point1);
-      console.log("point2-" + edges[edgeIndex].point2);
-      console.log("edgeIndex-" + edgeIndex);
-      console.log(edges[edgeIndex]);
-
-      var hasP1 = false;
-      for (var i = 0; i < edges.length; i++) {
-        if (edges[i].point1[0] == edges[edgeIndex].point1[0] && edges[i].point1[1] == edges[edgeIndex].point1[1] && edges[i].point1[2] == edges[edgeIndex].point1[2] && i != edgeIndex ) {
-          console.log("i-"+i+" edgeIndex-"+edgeIndex);
-          console.log(edges[i]);
-          console.log(edges[i]["point1"]);
-          console.log(edges[edgeIndex].point1);
-          edges[i].point1 = edges[edgeIndex].point2;
-          //edges[i].point1[0] = point2[0];
-          //edges[i].point1[1] = point2[1];
-          //edges[i].point1[2] = point2[2]; 
-          console.log("edges[i].point1-" + edges[i].point1);
-          console.log(edges[i]);
-          console.log(i);
-          hasP1 == true;
-          edges[i].distance = distance(edges[i].point1, edges[i].point2);
-        }
-        else if (edges[i].point2[0] == edges[edgeIndex].point1[0] && edges[i].point2[1] == edges[edgeIndex].point1[1] && edges[i].point1[2] == edges[edgeIndex].point1[2] && i != edgeIndex) {
-          console.log(edges[i]);
-          edges[i].point2 = edges[edgeIndex].point2;
-          //edges[i].point2[0] = point2[0];
-          //edges[i].point2[1] = point2[1];
-          //edges[i].point2[2] = point2[2]; 
-          console.log("edges[i].point2-" + edges[i].point2);
-          console.log(edges[i]);
-          hasP1 == true;
-          edges[i].distance = distance(edges[i].point1, edges[i].point2);
-        }
+    if (undo && elimCount > 0) {
+      for (var i = 0; i < elims[elimCount-1].length; i++) {
+        var tri = elims[elimCount-1][i];
+        triangleObjs[tri].eliminated = 0;
       }
+      elimCount--;
+      elims.pop();
+      for (var i = 0; i < changes[changeCount-1].length; i++) {
+        var tri = changes[changeCount-1][i][0];
+        if (changes[changeCount-1][i][1] == 1) {
 
-      /*if (!hasP1) {
-        for (var i = 0; i < edges.length; i++) {
-          if (edges[i].point1[0] == point2[0] && edges[i].point1[1] == point2[1] && edges[i].point1[2] == point2[2] && i != edgeIndex ) {
-            edges[i].point1 = point1; 
-            console.log(edges[i].point1);
-            hasP1 == true;
-            edges[i].distance = distance(edges[i].point1, edges[i].point2);
-          }
-          if (edges[i].point2[0] == point2[0] && edges[i].point2[1] == point2[1] && edges[i].point1[2] == point2[2] && i != edgeIndex) {
-            edges[i].point2 = point1;
-            console.log(edges[i].point2);
-            hasP1 == true;
-            edges[i].distance = distance(edges[i].point1, edges[i].point2);
-          }
-        }
+          triangleObjs[tri].triP1X = changes[changeCount-1][i][2];
+          triangleObjs[tri].triP1Y = changes[changeCount-1][i][3];
+          triangleObjs[tri].triP1Z = changes[changeCount-1][i][4];
 
-        for (var i = 0; i < triangleObjs.length; i++) {
-          var edited = false;
-          if (triangleObjs[i].point1[0] == point2[0] && triangleObjs[i].point1[1] == point2[1] && triangleObjs[i].point2[2] == point2[2] && triangleObjs.eliminated == false) {
-            triangleObjs[i].point1 = point1;
-            positions[i][0] = point1[0];
-            positions[i][1] = point1[1];
-            positions[i][2] = point1[2];
-            edited = true;
-          }
-          if (triangleObjs[i].point2[0] == point2[0] && triangleObjs[i].point2[1] == point2[1] && triangleObjs[i].point2[2] == point2[2]) {
-            triangleObjs[i].point2 = point1;
-            positions[i][3] = point1[0];
-            positions[i][4] = point1[1];
-            positions[i][5] = point1[2];
-            edited = true;
-          }
-          if (triangleObjs[i].point3[0] == point2[0] && triangleObjs[i].point3[1] == point2[1] && triangleObjs[i].point3[2] == point2[2]) {
-            triangleObjs[i].point3 = point1;
-            positions[i][6] = point1[0];
-            positions[i][7] = point1[1];
-            positions[i][8] = point1[2];
-            edited = true;
-          }
-          if (edited) {
-            console.log("t-" + i);
-            positionBuffer[i] = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[i]);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions[i]), gl.STATIC_DRAW);
-          }
+          positions[tri][0] = changes[changeCount-1][i][2];
+          positions[tri][1] = changes[changeCount-1][i][3];
+          positions[tri][2] = changes[changeCount-1][i][4];
+
+        } 
+        if (changes[changeCount-1][i][1] == 2) {
+
+          triangleObjs[tri].triP2X = changes[changeCount-1][i][2];
+          triangleObjs[tri].triP2Y = changes[changeCount-1][i][3];
+          triangleObjs[tri].triP2Z = changes[changeCount-1][i][4];
+
+          positions[tri][3] = changes[changeCount-1][i][2];
+          positions[tri][4] = changes[changeCount-1][i][3];
+          positions[tri][5] = changes[changeCount-1][i][4];
+          
+        } 
+        if (changes[changeCount-1][i][1] == 3) {
+
+          triangleObjs[tri].triP3X = changes[changeCount-1][i][2];
+          triangleObjs[tri].triP3Y = changes[changeCount-1][i][3];
+          triangleObjs[tri].triP3Z = changes[changeCount-1][i][4];
+
+          positions[tri][6] = changes[changeCount-1][i][2];
+          positions[tri][7] = changes[changeCount-1][i][3];
+          positions[tri][8] = changes[changeCount-1][i][4];
+          
         } 
 
-      } else {*/
-        for (var i = 0; i < triangleObjs.length; i++) {
-          var edited = false;
-          if (triangleObjs[i].point1[0] == edges[edgeIndex].point1[0] && triangleObjs[i].point1[1] == edges[edgeIndex].point1[1] && triangleObjs[i].point1[2] == edges[edgeIndex].point1[2] && triangleObjs.eliminated == false) {
-            triangleObjs[i].point1 = edges[edgeIndex].point2;
-            positions[i][0] = edges[edgeIndex].point2[0];
-            positions[i][1] = edges[edgeIndex].point2[1];
-            positions[i][2] = edges[edgeIndex].point2[2];
-            edited = true;
-          }
-          if (triangleObjs[i].point2[0] == edges[edgeIndex].point1[0] && triangleObjs[i].point2[1] == edges[edgeIndex].point1[1] && triangleObjs[i].point2[2] == edges[edgeIndex].point1[2]) {
-            triangleObjs[i].point2 = edges[edgeIndex].point2;
-            positions[i][3] = edges[edgeIndex].point2[0];
-            positions[i][4] = edges[edgeIndex].point2[1];
-            positions[i][5] = edges[edgeIndex].point2[2];
-            edited = true;
-          }
-          if (triangleObjs[i].point3[0] ==  edges[edgeIndex].point1[0] && triangleObjs[i].point3[1] == edges[edgeIndex].point1[1] && triangleObjs[i].point3[2] == edges[edgeIndex].point1[2]) {
-            triangleObjs[i].point3 = edges[edgeIndex].point2;
-            positions[i][6] = edges[edgeIndex].point2[0];
-            positions[i][7] = edges[edgeIndex].point2[1];
-            positions[i][8] = edges[edgeIndex].point2[2];
-            edited = true;
-          }
-          if (edited) {
-            console.log("t-" + i);
-            positionBuffer[i] = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[i]);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions[i]), gl.STATIC_DRAW);
-          }
-        } 
-      //}
-      edges[edgeIndex].eliminated = 1;        
-      collapse = false;    
+        positionBuffer[tri] = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[tri]);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions[tri]), gl.STATIC_DRAW);
+      }
+      loadEdges();
+      changeCount--;
+      changes.pop();
+      console.log(changes);
+      console.log(changeCount);
+      console.log(elims);
+      console.log(elimCount);
+      console.log(edges);
+      console.log(triangleObjs);
+      undo = false;
+    } else if (undo) {
+      undo = false;
     }
-  }
-    /*positions[0][4] = 1.00;
 
-        positionBuffer[0] = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[0]);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions[0]), gl.STATIC_DRAW);
-        collapse = false; */ 
-//}
+    if (collapse) {
+      var edgeIndex = shortestEdge();     
+      var triangle1 = edges[edgeIndex].triangle1;
+      triangleObjs[triangle1].eliminated = 1;
+      if (edges[edgeIndex].triangle2 != -1) {
+        var triangle2 = edges[edgeIndex].triangle2;
+        triangleObjs[triangle2].eliminated = 1;
+        elims[elimCount] = [triangle1, triangle2];
+      } else {
+        elims[elimCount] = [triangle1];
+      }
+      elimCount++;
+      changes[changeCount] = [];
+      
+      var triChanged = 0;
+      for (var i = 0; i < triangleObjs.length; i++) {
+        var edited = false;
+        if (triangleObjs[i].triP1X == edges[edgeIndex].edP1X && triangleObjs[i].triP1Y == edges[edgeIndex].edP1Y && triangleObjs[i].triP1Z == edges[edgeIndex].edP1Z && triangleObjs[i].eliminated == false) {
+          
+          changes[changeCount][triChanged] = [i, 1, triangleObjs[i].triP1X, triangleObjs[i].triP1Y, triangleObjs[i].triP1Z];
+          triChanged++;
+
+          triangleObjs[i].triP1X = edges[edgeIndex].edP2X;
+          triangleObjs[i].triP1Y = edges[edgeIndex].edP2Y;
+          triangleObjs[i].triP1Z = edges[edgeIndex].edP2Z;
+
+          positions[i][0] = edges[edgeIndex].edP2X;
+          positions[i][1] = edges[edgeIndex].edP2Y;
+          positions[i][2] = edges[edgeIndex].edP2Z;
+
+          edited = true;
+        }
+        if (triangleObjs[i].triP2X == edges[edgeIndex].edP1X && triangleObjs[i].triP2Y == edges[edgeIndex].edP1Y && triangleObjs[i].triP2Z == edges[edgeIndex].edP1Z && triangleObjs[i].eliminated == false) {
+            
+            changes[changeCount][triChanged] = [i, 2, triangleObjs[i].triP2X, triangleObjs[i].triP2Y, triangleObjs[i].triP2Z];
+            triChanged++;
+
+            triangleObjs[i].triP2X = edges[edgeIndex].edP2X;
+            triangleObjs[i].triP2Y = edges[edgeIndex].edP2Y;
+            triangleObjs[i].triP2Z = edges[edgeIndex].edP2Z;
+
+            positions[i][3] = edges[edgeIndex].edP2X;
+            positions[i][4] = edges[edgeIndex].edP2Y;
+            positions[i][5] = edges[edgeIndex].edP2Z;
+
+            edited = true;
+        }
+        if (triangleObjs[i].triP3X == edges[edgeIndex].edP1X && triangleObjs[i].triP3Y == edges[edgeIndex].edP1Y && triangleObjs[i].triP3Z == edges[edgeIndex].edP1Z && triangleObjs[i].eliminated == false) {
+
+          changes[changeCount][triChanged] = [i, 3, triangleObjs[i].triP3X, triangleObjs[i].triP3Y, triangleObjs[i].triP3Z];
+          triChanged++;
+
+          triangleObjs[i].triP3X = edges[edgeIndex].edP2X;
+          triangleObjs[i].triP3Y = edges[edgeIndex].edP2Y;
+          triangleObjs[i].triP3Z = edges[edgeIndex].edP2Z;
+
+          positions[i][6] = edges[edgeIndex].edP2X;
+          positions[i][7] = edges[edgeIndex].edP2Y;
+          positions[i][8] = edges[edgeIndex].edP2Z;
+
+          edited = true;
+        }
+        if (edited) {
+          positionBuffer[i] = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[i]);
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions[i]), gl.STATIC_DRAW);
+        }
+      } 
+      console.log("triangles changed " + triChanged);
+      edges[edgeIndex].eliminated = 1;        
+      collapse = false;  
+      changeCount++; 
+      loadEdges();
+      console.log(changes);
+      console.log(changeCount);
+      console.log(elims);
+      console.log(elimCount); 
+      console.log(edges);
+      console.log(triangleObjs);
+    } 
+  }
+    
 
 /* MAIN -- HERE is where execution begins after window load */
 
