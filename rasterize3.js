@@ -59,6 +59,23 @@ var detailTexture = [];
 var mountains = 100;
 var triangles = 136 * mountains;
 
+// Edge Collapse
+var edgeObjs = [];
+var triangleObjs = [];
+
+// Vertex Split
+var changes = [];
+var elims = [];
+var elimCount = [];
+var changeCount = [];
+
+// Actions
+var collapse = false;
+var undo = false;
+
+// UI
+var edgesText;
+
 function handleKeyDown(event) {
     
     
@@ -74,47 +91,20 @@ function handleKeyDown(event) {
             
         // view change
         case "ArrowLeft": // translate view left, rotate left with shift
-        	//Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,viewDelta)); 
             Center = vec3.add(Center,Center,vec3.scale(temp,viewRight,viewDelta));
             Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,viewDelta)); 
             lightPosition = vec3.add(lightPosition,lightPosition,vec3.scale(temp,viewRight,viewDelta)); 
-            //lightPosition = vec3(Center.x, 30, Center.z - 1);
-            //lightPosition = vec3.add(Center,Center,vec3.scale(temp,viewRight,viewDelta));
-            //lightPosition = vec3.add(Center,Center, temp);
-            //lightPosition = vec3(lightPosition.x, 30, lightPosition.z);
-            //print(lightPosition);
-            //if (!event.getModifierState("Shift"))
             break;
         case "ArrowRight": // translate view right, rotate right with shift
         	//Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,-viewDelta)); 
             Center = vec3.add(Center,Center,vec3.scale(temp,viewRight,-viewDelta));
             Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,-viewDelta)); 
             lightPosition = vec3.add(lightPosition,lightPosition,vec3.scale(temp,viewRight,-viewDelta)); 
-            //lightPosition = vec3(Center.x, 30, Center.z - 1);
-            //lightPosition = vec3.add(Center,Center,vec3.scale(temp,viewRight,-viewDelta));
-            //lightPosition = vec3.add(Center,Center, temp);
-            //lightPosition = vec3(lightPosition.x, 30, lightPosition.z);
-            //print(lightPosition);
-            //lightPosition = vec3(Center.x, 30, Center.z - 1);
-            //if (!event.getModifierState("Shift"))
             break;
         case "ArrowDown": // translate view backward, rotate up with shift
-            /*if (event.getModifierState("Shift")) {
                 Eye = vec3.add(Eye,Eye,vec3.scale(temp,lookAt,-viewDelta));
                 Center = vec3.add(Center,Center,vec3.scale(temp,lookAt,-viewDelta));
-                //lightPosition = vec3.add(Center,Center,vec3.scale(temp,lookAt,-viewDelta));
-                //lightPosition = vec3(lightPosition.x, 30, lightPosition.z - 1);
-                lightPosition = vec3(Center.x, 30, Center.z - 1);
-            } else { */
-                Eye = vec3.add(Eye,Eye,vec3.scale(temp,lookAt,-viewDelta));
-                Center = vec3.add(Center,Center,vec3.scale(temp,lookAt,-viewDelta));
-                //lightPosition = vec3.add(Center,Center, temp);
-                //lightPosition = vec3.add(Center,Center,vec3.scale(temp,lookAt,-viewDelta));
-                //lightPosition = new vec3(lightPosition.x, 30, lightPosition.z + 1);
                 lightPosition = vec3.add(lightPosition, lightPosition, vec3.scale(temp,lookAt,-viewDelta));
-                //print(lightPosition);
-                //lightPosition = vec3(Center.x, 30, Center.z - 1);
-            //} // end if shift not pressed
             break;
         case "ArrowUp": // translate view forward, rotate down with shift
                 Eye = vec3.add(Eye,Eye,vec3.scale(temp,lookAt,viewDelta));
@@ -154,6 +144,30 @@ function setupWebGL() {
  
 } // end setupWebGL
 
+window.addEventListener("load", function setupWebGL (evt) {
+  "use strict"
+
+  window.removeEventListener(evt.type, setupWebGL, false);
+
+  var canvas = document.getElementById("myWebGLCanvas"); 
+  var button = document.querySelector("#merge-button");
+  canvas.addEventListener("click", merge, false);
+  button.addEventListener("click", merge, false);
+
+}, false);
+
+window.addEventListener("load", function setupWebGL (evt) {
+  "use strict"
+
+  window.removeEventListener(evt.type, setupWebGL, false);
+
+  var canvas = document.getElementById("myWebGLCanvas"); 
+  var button = document.querySelector("#split-button");
+  canvas.addEventListener("click", split, false);
+  button.addEventListener("click", split, false);
+
+}, false);
+
 function loadTexture(whichModel,textureFile,texts) {
         
     // load a 1x1 gray image into texture for use when no texture, and until texture loads
@@ -191,9 +205,6 @@ function loadTexture(whichModel,textureFile,texts) {
     } // end if material has a texture
 } // end load texture
 
-// X: Max 20; Min -12
-// Z: Max: 9; Min -5
-// Y: -0.8
 function loadModels() {
 
 	loadGround();
@@ -205,6 +216,195 @@ function loadModels() {
 			loadMountain((i * 10 + j) * 136, disX + i + j + 0.5 * i + 0.7 * j, disZ + i + 0.7 * i + 0.7 * j - j);
 		}
 	}
+  console.log(triangleObjs);
+  loadEdges();
+  console.log(edgeObjs);
+
+  for (var i = 0; i < 100; i++) {
+    elimCount[i] = 0;
+    changeCount[i] = 0;
+    elims[i] = [];
+    changes[i] = [];
+  }
+
+  console.log(positions);
+}
+
+function shortestEdge(mNum) {
+  var shortestEdge = 100;
+  var shortestEdgeIndex = -1;
+  for (var i = 0; i < edgeObjs[mNum].length; i++) {
+    if (edgeObjs[mNum][i].distance < shortestEdge && edgeObjs[mNum][i].eliminated == 0) {
+      shortestEdge = edgeObjs[mNum][i].distance;
+      shortestEdgeIndex = i;
+    }
+  }
+  return shortestEdgeIndex;
+}
+
+function distance(p1X, p1Y, p1Z, p2X, p2Y, p2Z) {
+  return Math.sqrt( Math.pow( (p1X - p2X) , 2) + Math.pow( (p1Y - p2Y) , 2) + Math.pow( (p1Z - p2Z) , 2) );
+}
+
+function edgeExists(mNum, p1X, p1Y, p1Z, p2X, p2Y, p2Z) {
+
+  for (var i = 0; i < edgeObjs[mNum].length; i++) {
+
+    if (edgeObjs[mNum][i].edP1X == p1X && edgeObjs[mNum][i].edP1Y == p1Y && edgeObjs[mNum][i].edP1Z == p1Z) {
+      if (edgeObjs[mNum][i].edP2X == p2X && edgeObjs[mNum][i].edP2Y == p2Y && edgeObjs[mNum][i].edP2Z == p2Z) {
+          return i;
+      } // if point-2 == point-2
+    } // if point-1 == point-1
+
+    if (edgeObjs[mNum][i].edP2X == p1X && edgeObjs[mNum][i].edP2Y == p1Y && edgeObjs[mNum][i].edP2Z == p1Z) {
+      if (edgeObjs[mNum][i].edP1X == p2X && edgeObjs[mNum][i].edP1Y == p2Y && edgeObjs[mNum][i].edP1Z == p2Z) {
+        return i;
+      } // if point-1 == point-2
+    } // if point-2 == point-1
+
+  } // for every edge in the moutain
+
+  // edge doesn't exist
+  return -1;
+}
+
+function loadEdges() {
+
+  // For Every Mountain ...
+  for (var i = 0; i < mountains; i++ ) {
+
+    // Initialize Empty Array
+    edgeObjs[i] = [];
+    var edgeCount = 0;
+
+    // For Every Triangle Object In The Mountain ...
+    for (var j = 0; j < triangleObjs[i].length; j++) {
+
+        // If Triangle Object Is Not Eliminated ...
+        if (triangleObjs[i][j].eliminated != 1) {
+
+          // Establish Variables For Each Triangle
+          var p1X = triangleObjs[i][j].triP1X;
+          var p1Y = triangleObjs[i][j].triP1Y;
+          var p1Z = triangleObjs[i][j].triP1Z;
+
+          var p2X = triangleObjs[i][j].triP2X;
+          var p2Y = triangleObjs[i][j].triP2Y;
+          var p2Z = triangleObjs[i][j].triP2Z;
+
+          var p3X = triangleObjs[i][j].triP3X;
+          var p3Y = triangleObjs[i][j].triP3Y;
+          var p3Z = triangleObjs[i][j].triP3Z;
+
+          // Does Edge Exist For Mountain "i" (p1 & p2)?
+          var index1 = edgeExists(i, p1X, p1Y, p1Z, p2X, p2Y, p2Z);
+          // If Edge Doesn't Exist ...
+          if (index1 == -1) {
+
+            // Create Edge Object ...
+            edgeObjs[i][edgeCount] = {
+
+              edP1X: p1X,
+              edP1Y: p1Y,
+              edP1Z: p1Z,
+
+              edP2X: p2X,
+              edP2Y: p2Y,
+              edP2Z: p2Z,
+
+              distance: distance(p1X, p1Y, p1Z, p2X, p2Y, p2Z),
+
+              triangle1: j,
+              triangle2: -1,
+              eliminated: 0
+            } // end edge object
+
+            // Increment Edge Count
+            edgeCount++;
+
+          // Else, If Edge Exists ... 
+          } else {
+            // Change Triangle 2
+            edgeObjs[i][index1].triangle2 = j;
+          }
+
+          // Does Edge Exist For Mountain "i" (p2 & p3)?
+          var index2 = edgeExists(i, p2X, p2Y, p2Z, p3X, p3Y, p3Z);
+          // If Edge Doesn't Exist ...
+          if (index2 == -1) {
+
+            // Create Edge Object ...
+            edgeObjs[i][edgeCount] = {
+
+              edP1X: p2X,
+              edP1Y: p2Y,
+              edP1Z: p2Z,
+
+              edP2X: p3X,
+              edP2Y: p3Y,
+              edP2Z: p3Z,
+
+              distance: distance(p2X, p2Y, p2Z, p3X, p3Y, p3Z),
+
+              triangle1: j,
+              triangle2: -1,
+              eliminated: 0
+            } // end edge object
+
+            // Increment Edge Count
+            edgeCount++;
+
+          // Else, If Edge Exists ... 
+          } else {
+            // Change Triangle 2
+            edgeObjs[i][index2].triangle2 = j;
+          }
+
+          // Does Edge Exist For Mountain "i" (p1 & p3)?
+          var index3 = edgeExists(i, p1X, p1Y, p1Z, p3X, p3Y, p3Z);
+          // If Edge Doesn't Exist ...
+          if (index3 == -1) {
+
+            // Create Edge Object ...   
+            edgeObjs[i][edgeCount] = {
+
+              edP1X: p1X,
+              edP1Y: p1Y,
+              edP1Z: p1Z,
+
+              edP2X: p3X,
+              edP2Y: p3Y,
+              edP2Z: p3Z,
+
+              distance: distance(i, p1X, p1Y, p1Z, p3X, p3Y, p3Z),
+
+              triangle1: j,
+              triangle2: -1,
+              eliminated: 0
+          } // end edge object
+
+            // Increment Edge Count
+            edgeCount++;
+
+          // Else, If Edge Exists ... 
+          } else {
+            // Change Triangle 3
+            edgeObjs[i][index3].triangle2 = j;
+          }
+
+        } // end "If Triangle Object Is Not Eliminated ... "
+
+    } // end every triangle
+  } // end every mountain
+}
+
+function merge() {
+  collapse = true;
+  console.log("clicked");
+}
+
+function split() {
+  undo = true;
 }
 
 function loadGround() {
@@ -269,6 +469,11 @@ function loadGround() {
 
 function loadMountain(indexStart, disX, disZ) {
 
+  // Mountain Number
+  var mountainNum = indexStart/136;
+  triangleObjs[mountainNum] = [];
+  positions[mountainNum] = [];
+
   // Pyramid Front
   var x1 = 0.4;
   var x2 = 0.5;
@@ -294,11 +499,24 @@ function loadMountain(indexStart, disX, disZ) {
   	z2 += disZ;
   	z3 += disZ;
 
-    positions[i] = [
+    positions[mountainNum][i] = [
       x1,  y1,  z1,
       x2,  y2,  z2,
       x3,  y3,  z3,
     ]
+
+    triangleObjs[mountainNum][i] = {
+      eliminated:0,
+      triP1X: x1,
+      triP1Y: y1,
+      triP1Z: z1,
+      triP2X: x2,
+      triP2Y: y2,
+      triP2Z: z2,
+      triP3X: x3,
+      triP3Y: y3,
+      triP3Z: z3
+    }
 
     var Ux = x2 - x1;
     var Uy = y2 - y1;
@@ -2358,7 +2576,7 @@ function loadMountain(indexStart, disX, disZ) {
 
     positionBuffer[indexStart + i] = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[indexStart + i]);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions[i]), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions[mountainNum][i]), gl.STATIC_DRAW);
 
     normalsBuffer[indexStart + i] = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, normalsBuffer[indexStart + i]);
@@ -2594,49 +2812,293 @@ function renderModels() {
     // Render Mountains
     for (var i = 0; i < triangles; i++) {
 
-      gl.uniform3fv(lightPositionULoc,lightPosition); // pass in the light's position  
-      mat4.multiply(hpvmMatrix,hpvMatrix,mMatrix); // handedness * project * view * model
-      gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in the m matrix
-      gl.uniformMatrix4fv(pvmMatrixULoc, false, hpvmMatrix); // pass in the hpvm matrix
-      gl.uniform3fv(lightPositionULoc,lightPosition); // pass in the light's position
+      var mNum = Math.floor(i/136);
+      var tNum = i%136;
+
+      //console.log("mNum:  " + mNum);
+      //console.log("tNum:  " + tNum);
+
+      if (triangleObjs[mNum][tNum].eliminated == 0) {
+
+        gl.uniform3fv(lightPositionULoc,lightPosition); // pass in the light's position  
+        mat4.multiply(hpvmMatrix,hpvMatrix,mMatrix); // handedness * project * view * model
+        gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in the m matrix
+        gl.uniformMatrix4fv(pvmMatrixULoc, false, hpvmMatrix); // pass in the hpvm matrix
+        gl.uniform3fv(lightPositionULoc,lightPosition); // pass in the light's position
 
 
-      var ambient = [0.3,0.3,0.3];
-      var diffuse = [0.54,0.27,0.07];
-      var specular = [0.3,0.3,0.3];
-      var n = 1;
+        var ambient = [0.3,0.3,0.3];
+        var diffuse = [0.54,0.27,0.07];
+        var specular = [0.3,0.3,0.3];
+        var n = 1;
 
-      if (i%136 < 12) {
-      	diffuse = [1.0,1.0,1.0];
-      } 
+        if (i%136 < 12) {
+      	 diffuse = [1.0,1.0,1.0];
+        } 
 
-      if (i%136 > 47) {
-      	diffuse = [0.0,0.79,0.34];
-      }
+        if (i%136 > 47) {
+        	diffuse = [0.0,0.79,0.34];
+        }
  
-      gl.uniform3fv(ambientULoc, ambient); // pass in the ambient reflectivity
-      gl.uniform3fv(diffuseULoc, diffuse); // pass in the diffuse reflectivity
-      gl.uniform3fv(specularULoc, specular); // pass in the specular reflectivity
-      gl.uniform1f(shininessULoc, n); // pass in the specular exponent
-      gl.uniform1i(usingTextureULoc,false); // whether the set uses texture
-      gl.activeTexture(gl.TEXTURE0); // bind to active texture 0 (the first)
-      gl.bindTexture(gl.TEXTURE_2D, textures[i]); // bind the set's texture
-      gl.uniform1i(textureULoc, 0); // pass in the texture and active texture 0
+        gl.uniform3fv(ambientULoc, ambient); // pass in the ambient reflectivity
+        gl.uniform3fv(diffuseULoc, diffuse); // pass in the diffuse reflectivity
+        gl.uniform3fv(specularULoc, specular); // pass in the specular reflectivity
+        gl.uniform1f(shininessULoc, n); // pass in the specular exponent
+        gl.uniform1i(usingTextureULoc,false); // whether the set uses texture
+        gl.activeTexture(gl.TEXTURE0); // bind to active texture 0 (the first)
+        gl.bindTexture(gl.TEXTURE_2D, textures[i]); // bind the set's texture
+        gl.uniform1i(textureULoc, 0); // pass in the texture and active texture 0
         
-      // position, normal and uv buffers: activate and feed into vertex shader
-      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[i]); // activate position
-      gl.vertexAttribPointer(vPosAttribLoc,3,gl.FLOAT,false,0,0); // feed
-      gl.bindBuffer(gl.ARRAY_BUFFER,normalsBuffer[i]); // activate normal
-      gl.vertexAttribPointer(vNormAttribLoc,3,gl.FLOAT,false,0,0); // feed
-      gl.bindBuffer(gl.ARRAY_BUFFER,uvBuffer[i]); // activate uv
-      gl.vertexAttribPointer(vUVAttribLoc,2,gl.FLOAT,false,0,0); // feed
+        // position, normal and uv buffers: activate and feed into vertex shader
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[i]); // activate position
+        gl.vertexAttribPointer(vPosAttribLoc,3,gl.FLOAT,false,0,0); // feed
+        gl.bindBuffer(gl.ARRAY_BUFFER,normalsBuffer[i]); // activate normal
+        gl.vertexAttribPointer(vNormAttribLoc,3,gl.FLOAT,false,0,0); // feed
+        gl.bindBuffer(gl.ARRAY_BUFFER,uvBuffer[i]); // activate uv
+        gl.vertexAttribPointer(vUVAttribLoc,2,gl.FLOAT,false,0,0); // feed
 
-      // triangle buffer: activate and render
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, verticesBuffer[i]); // activate
-      gl.drawElements(gl.TRIANGLES,3,gl.UNSIGNED_SHORT,0); // render
+        // triangle buffer: activate and render
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, verticesBuffer[i]); // activate
+        gl.drawElements(gl.TRIANGLES,3,gl.UNSIGNED_SHORT,0); // render
 
-    } 
-}
+      }
+
+    } // end for every mountain
+
+    // If Vertex Split ...
+    if (undo) {
+
+      // For Every Mountain ...
+      
+    }
+
+    // If Collapse ...
+    if (collapse) {
+
+        // For Every Mountain ... 
+        for (var i = 0; i < 100; i++) {
+
+          // Retrieve Elim Count
+          var eCount = elimCount[i];
+
+          // Retrieve Change Count
+          var cCount = changeCount[i];
+
+          // Find Shortest Edge Of Each Mountain ...
+          var edgeIndex = shortestEdge(i); 
+          //console.log("shortestEdge " + edgeIndex);
+
+          // Index Of First Triangle 
+          var triangle1 = edgeObjs[i][edgeIndex].triangle1;
+
+          //console.log("t1: " + triangle1);
+
+          // Eliminate That Triangle 
+          triangleObjs[i][triangle1].eliminated = 1;
+
+          // If There Is A Second Triangle ...
+          if (edgeObjs[i][edgeIndex].triangle2 != -1) {
+
+            // Index Of Second Triangle 
+            var triangle2 = edgeObjs[i][edgeIndex].triangle2;
+
+            // Eliminate That Triangle 
+            triangleObjs[i][triangle2].eliminated = 1;
+
+            // Save The Eliminatd Triangles To "Elims"
+            elims[i][eCount] = [triangle1, triangle2];
+
+            //console.log("t1: " + triangle2);
+
+          // If There Is No Second Triangle
+          } else {
+
+            // Save The Eliminated Triangle To "Elims"
+            elims[i][eCount] = [triangle1];
+          }
+
+          // Empty Array For Saving Changes
+          changes[i][cCount] = [];
+
+          // Establish "Triangles Changed" Count
+          var triChanged = 0;
+
+          // For All Triangles In The Mountain ...
+          for (var j = 0; j < triangleObjs[i].length; j++) {
+
+            // Has Triangle Been Edited?
+            var edited = false;
+
+            // Real Index Of Triangle 
+            var index = i * 136 + j;
+
+            // If Triangle Point-1 == Shortest Edge Point-1
+            if (triangleObjs[i][j].triP1X == edgeObjs[i][edgeIndex].edP1X && triangleObjs[i][j].triP1Y == edgeObjs[i][edgeIndex].edP1Y && triangleObjs[i][j].triP1Z == edgeObjs[i][edgeIndex].edP1Z && triangleObjs[i][j].eliminated == false) {
+          
+              // Save Triangle Changes To Changes Array
+              changes[i][cCount][triChanged] = [i, 1, triangleObjs[i][j].triP1X, triangleObjs[i][j].triP1Y, triangleObjs[i][j].triP1Z];
+              
+              // Increment Triangles Changed
+              triChanged++;
+
+              // Triangle Point-1 == Shortest Edge Point-2
+              triangleObjs[i][j].triP1X = edgeObjs[i][edgeIndex].edP2X;
+              triangleObjs[i][j].triP1Y = edgeObjs[i][edgeIndex].edP2Y;
+              triangleObjs[i][j].triP1Z = edgeObjs[i][edgeIndex].edP2Z;
+
+              // Alter Real Positions
+              positions[i][j][0] = edgeObjs[i][edgeIndex].edP2X;
+              positions[i][j][1] = edgeObjs[i][edgeIndex].edP2Y;
+              positions[i][j][2] = edgeObjs[i][edgeIndex].edP2Z;
+
+              // Triangle Has Been Edited
+              edited = true;
+
+              //console.log("row 1; (mNum, tNum) -- (" + i + ", " + j + ")");
+
+            } // end "If Triangle Point-1 == Shortest Edge Point-1"
+
+            // If Triangle Point-2 == Shortest Edge Point-1
+            if (triangleObjs[i][j].triP2X == edgeObjs[i][edgeIndex].edP1X && triangleObjs[i][j].triP2Y == edgeObjs[i][edgeIndex].edP1Y && triangleObjs[i][j].triP2Z == edgeObjs[i][edgeIndex].edP1Z && triangleObjs[i][j].eliminated == false) {
+            
+              // Save Triangle Changes To Changes Array
+              changes[i][cCount][triChanged] = [i, 2, triangleObjs[i][j].triP2X, triangleObjs[i][j].triP2Y, triangleObjs[i][j].triP2Z];
+
+              // Increment Triangles Changed
+              triChanged++;
+
+              // Triangle Point-2 == Shortest Edge Point-2
+              triangleObjs[i][j].triP2X = edgeObjs[i][edgeIndex].edP2X;
+              triangleObjs[i][j].triP2Y = edgeObjs[i][edgeIndex].edP2Y;
+              triangleObjs[i][j].triP2Z = edgeObjs[i][edgeIndex].edP2Z;
+
+              // Alter Real Positions
+              positions[i][j][3] = edgeObjs[i][edgeIndex].edP2X;
+              positions[i][j][4] = edgeObjs[i][edgeIndex].edP2Y;
+              positions[i][j][5] = edgeObjs[i][edgeIndex].edP2Z;
+
+              // Triangle Has Been Edited
+              edited = true;
+
+              //console.log("row 2; (mNum, tNum) -- (" + i + ", " + j + ")");
+
+            } // end "If Triangle Point-2 == Shortest Edge Point-1"
+
+            // If Triangle Point-3 == Shortest Edge Point-1
+            if (triangleObjs[i][j].triP3X == edgeObjs[i][edgeIndex].edP1X && triangleObjs[i][j].triP3Y == edgeObjs[i][edgeIndex].edP1Y && triangleObjs[i][j].triP3Z == edgeObjs[i][edgeIndex].edP1Z && triangleObjs[i][j].eliminated == false) {
+
+              // Save Triangle Changes To Changes Array
+              changes[i][cCount][triChanged] = [i, 3, triangleObjs[i][j].triP3X, triangleObjs[i][j].triP3Y, triangleObjs[i][j].triP3Z];
+
+              // Increment Triangles Changed
+              triChanged++;
+
+              // Triangle Point-3 == Shortest Edge Point-2
+              triangleObjs[i][j].triP3X = edgeObjs[i][edgeIndex].edP2X;
+              triangleObjs[i][j].triP3Y = edgeObjs[i][edgeIndex].edP2Y;
+              triangleObjs[i][j].triP3Z = edgeObjs[i][edgeIndex].edP2Z;
+
+              // Alter Real Positions
+              positions[i][j][6] = edgeObjs[i][edgeIndex].edP2X;
+              positions[i][j][7] = edgeObjs[i][edgeIndex].edP2Y;
+              positions[i][j][8] = edgeObjs[i][edgeIndex].edP2Z;
+
+              // Triangle Has Been Edited
+              edited = true;
+
+              //console.log("row 3; (mNum, tNum) -- (" + i + ", " + j + ")");
+
+            }
+
+            // If The Triangle Has Been Edited
+            if (edited) {
+              // Edit PositionBuffer
+              //console.log(index);
+              positionBuffer[index] = gl.createBuffer();
+              gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[index]);
+              gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions[i][j]), gl.STATIC_DRAW);
+            }
+
+          } // end "For All Triangles In The Mountain ... "
+          
+          //console.log("triangles changed " + triChanged);
+          edgeObjs[i][edgeIndex].eliminated = 1;        
+          elimCount[i]++; // Increment elimCount
+          changeCount[i]++; // Increment changeCount
+
+        } // end for every mountain 
+
+        // After Collapse ...
+        collapse = false; // Collapse Is False
+        loadEdges();
+        //console.log(changes);
+
+    } // ends collapse
+} // end render models 
+
+/*
+if (undo && elimCount > 0) {
+      for (var i = 0; i < elims[elimCount-1].length; i++) {
+        var tri = elims[elimCount-1][i];
+        triangleObjs[tri].eliminated = 0;
+      }
+      elimCount--;
+      elims.pop();
+      for (var i = 0; i < changes[changeCount-1].length; i++) {
+        var tri = changes[changeCount-1][i][0];
+        if (changes[changeCount-1][i][1] == 1) {
+
+          triangleObjs[tri].triP1X = changes[changeCount-1][i][2];
+          triangleObjs[tri].triP1Y = changes[changeCount-1][i][3];
+          triangleObjs[tri].triP1Z = changes[changeCount-1][i][4];
+
+          positions[tri][0] = changes[changeCount-1][i][2];
+          positions[tri][1] = changes[changeCount-1][i][3];
+          positions[tri][2] = changes[changeCount-1][i][4];
+
+        } 
+        if (changes[changeCount-1][i][1] == 2) {
+
+          triangleObjs[tri].triP2X = changes[changeCount-1][i][2];
+          triangleObjs[tri].triP2Y = changes[changeCount-1][i][3];
+          triangleObjs[tri].triP2Z = changes[changeCount-1][i][4];
+
+          positions[tri][3] = changes[changeCount-1][i][2];
+          positions[tri][4] = changes[changeCount-1][i][3];
+          positions[tri][5] = changes[changeCount-1][i][4];
+          
+        } 
+        if (changes[changeCount-1][i][1] == 3) {
+
+          triangleObjs[tri].triP3X = changes[changeCount-1][i][2];
+          triangleObjs[tri].triP3Y = changes[changeCount-1][i][3];
+          triangleObjs[tri].triP3Z = changes[changeCount-1][i][4];
+
+          positions[tri][6] = changes[changeCount-1][i][2];
+          positions[tri][7] = changes[changeCount-1][i][3];
+          positions[tri][8] = changes[changeCount-1][i][4];
+          
+        } 
+
+        positionBuffer[tri] = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[tri]);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions[tri]), gl.STATIC_DRAW);
+      }
+      loadEdges();
+      changeCount--;
+      changes.pop();
+      console.log(changes);
+      console.log(changeCount);
+      console.log(elims);
+      console.log(elimCount);
+      console.log(edges);
+      console.log(triangleObjs);
+      undo = false;
+      edgesText.textContent = 220 - edges.length;
+    } else if (undo) {
+      undo = false;
+    }
+*/
 
 /* MAIN -- HERE is where execution begins after window load */
 

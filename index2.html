@@ -15,7 +15,7 @@
         position: relative;
         top: 0;
         left: 0;
-        margin: 30px;
+        margin: 50px;
       }
       .container {
         position: relative;
@@ -25,8 +25,8 @@
       h1 {
         position: relative;
         color: white;
-        top: 10px;
-        left: 30px;
+        top: 20px;
+        left: 200px;
       }
  
       #text {
@@ -35,12 +35,55 @@
         top: 0px;
         z-index: 10;
       }
+
+      #edges-label
+      {
+        position: relative;
+        display : inline-block;
+        color: white;
+        font-size: 20px;
+        left: 70px;
+        top: 640px;
+      }
+
+      #edges-text
+      {
+        position: relative;
+        display : inline-block;
+        color: white;
+        font-size: 24px;
+        font-weight: bold;
+        left: 100px;
+        top: 640px;
+      }
+
+      #merge-button {
+        position: relative;
+        display : inline-block;
+        font-size: 16px;
+        font-weight: bold;
+        margin : auto;
+        padding : 0.6em;
+        top: 640px;
+        left: 240px;
+      }
+
+      #split-button {
+        position: relative;
+        display : inline-block;
+        font-size: 16px;
+        font-weight: bold;
+        margin : auto;
+        padding : 0.6em;
+        top: 640px;
+        left: 240px;
+      }
     </style>
   </head>
 
   <body onload="main();">
 
-    <h1>LOD Example</h1>
+    <h1>Level of Detail Example</h1>
     
     <div id= "cc">
 
@@ -48,6 +91,11 @@
       <canvas id="myWebGLCanvas" width="600" height="600" style="border: 10px solid black;"></canvas>
        
     </div> 
+
+    <h3 id="edges-label">Edges Collapsed:</h3>
+    <h3 id="edges-text"> 0 </h3>
+    <button id="merge-button">Edge Collapse</button>
+    <button id="split-button">Vertex Split</button>
 
     <!-- <div class="container">
 

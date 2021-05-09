@@ -74,6 +74,8 @@ var elims = [];
 var elimCount = 0;
 var changeCount = 0;
 
+var edgesText;
+
 function handleKeyDown(event) {
     
     
@@ -114,10 +116,12 @@ function handleKeyDown(event) {
             Up = vec3.copy(Up,defaultUp);
             break;   
         case "KeyA":
-            collapse = true;
+            //collapse();
+            //collapse = true;
+            merge();
             break;
         case "KeyD":
-            undo = true;
+            split();
             break;
     } // end switch
 } // end handleKeyDown
@@ -142,8 +146,35 @@ function setupWebGL() {
     catch(e) {
       console.log(e);
     } // end catch
+
+    edgesText = document.querySelector("#edges-text");
  
 } // end setupWebGL
+
+window.addEventListener("load", function setupWebGL (evt) {
+  "use strict"
+
+  window.removeEventListener(evt.type, setupWebGL, false);
+
+  var canvas = document.getElementById("myWebGLCanvas"); 
+  var button = document.querySelector("#merge-button");
+  canvas.addEventListener("click", merge, false);
+  button.addEventListener("click", merge, false);
+
+}, false);
+
+window.addEventListener("load", function setupWebGL (evt) {
+  "use strict"
+
+  window.removeEventListener(evt.type, setupWebGL, false);
+
+  var canvas = document.getElementById("myWebGLCanvas"); 
+  var button = document.querySelector("#split-button");
+  canvas.addEventListener("click", split, false);
+  button.addEventListener("click", split, false);
+
+}, false);
+
 
 function loadTexture(whichModel,textureFile,texts) {
         
@@ -187,12 +218,15 @@ function loadTexture(whichModel,textureFile,texts) {
 // Y: -0.8
 function loadModels() {
 
-	//loadGround();
+  loadGround();
   var i = 0;
   var j = 0;
   var disX = 5;
   var disZ = 5;
+  
   loadMountain(0, 20, 6);
+
+
   loadEdges();
   console.log(triangleObjs);
   console.log(edges);
@@ -202,6 +236,14 @@ function loadModels() {
 			loadMountain((i * 10 + j) * 136, disX + i + j + 0.5 * i + 0.7 * j, disZ + i + 0.7 * i + 0.7 * j - j);
 		}
 	}*/
+}
+
+function merge() {
+	collapse = true;
+}
+
+function split() {
+	undo = true;
 }
 
 function loadGround() {
@@ -2831,18 +2873,22 @@ function renderModels() {
       console.log(edges);
       console.log(triangleObjs);
       undo = false;
+      edgesText.textContent = 220 - edges.length;
     } else if (undo) {
       undo = false;
     }
 
     if (collapse) {
-      var edgeIndex = shortestEdge();     
+      var edgeIndex = shortestEdge();   
+      console.log("shortestEdge " + edgeIndex);  
       var triangle1 = edges[edgeIndex].triangle1;
+      console.log("t1: " + triangle1);
       triangleObjs[triangle1].eliminated = 1;
       if (edges[edgeIndex].triangle2 != -1) {
         var triangle2 = edges[edgeIndex].triangle2;
         triangleObjs[triangle2].eliminated = 1;
         elims[elimCount] = [triangle1, triangle2];
+        console.log("t2: " + triangle2);
       } else {
         elims[elimCount] = [triangle1];
       }
@@ -2864,7 +2910,7 @@ function renderModels() {
           positions[i][0] = edges[edgeIndex].edP2X;
           positions[i][1] = edges[edgeIndex].edP2Y;
           positions[i][2] = edges[edgeIndex].edP2Z;
-
+          console.log(i);
           edited = true;
         }
         if (triangleObjs[i].triP2X == edges[edgeIndex].edP1X && triangleObjs[i].triP2Y == edges[edgeIndex].edP1Y && triangleObjs[i].triP2Z == edges[edgeIndex].edP1Z && triangleObjs[i].eliminated == false) {
@@ -2879,7 +2925,7 @@ function renderModels() {
             positions[i][3] = edges[edgeIndex].edP2X;
             positions[i][4] = edges[edgeIndex].edP2Y;
             positions[i][5] = edges[edgeIndex].edP2Z;
-
+            console.log(i);
             edited = true;
         }
         if (triangleObjs[i].triP3X == edges[edgeIndex].edP1X && triangleObjs[i].triP3Y == edges[edgeIndex].edP1Y && triangleObjs[i].triP3Z == edges[edgeIndex].edP1Z && triangleObjs[i].eliminated == false) {
@@ -2894,26 +2940,22 @@ function renderModels() {
           positions[i][6] = edges[edgeIndex].edP2X;
           positions[i][7] = edges[edgeIndex].edP2Y;
           positions[i][8] = edges[edgeIndex].edP2Z;
-
+          console.log(i);
           edited = true;
         }
         if (edited) {
+          console.log(i);
           positionBuffer[i] = gl.createBuffer();
           gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer[i]);
           gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions[i]), gl.STATIC_DRAW);
         }
       } 
-      console.log("triangles changed " + triChanged);
+      //console.log("triangles changed " + triChanged);
       edges[edgeIndex].eliminated = 1;        
       collapse = false;  
       changeCount++; 
       loadEdges();
-      console.log(changes);
-      console.log(changeCount);
-      console.log(elims);
-      console.log(elimCount); 
-      console.log(edges);
-      console.log(triangleObjs);
+      edgesText.textContent = 220 - edges.length;
     } 
   }
     
