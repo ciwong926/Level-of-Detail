@@ -54,7 +54,8 @@ var detailPositionBuffer = [];
 var detailVerticesBuffer = [];
 var detailNormalsBuffer = [];
 var detailUVBuffer = [];
-var detailTexture = [];
+var detailTextures = [];
+var detailPositions = [];
 
 var mountains = 100;
 var triangles = 136 * mountains;
@@ -62,7 +63,10 @@ var triangles = 136 * mountains;
 // Edge Collapse
 var edgeObjs = [];
 var triangleObjs = [];
+
+// Culling
 var mountainObjs = [];
+var treeObjs = [];
 
 // Vertex Split
 var changes = [];
@@ -74,9 +78,11 @@ var changeCount = [];
 var collapse = false;
 var undo = false;
 
+// For UI To Use
 var sceneMult = 0;
 var distMult = 1;
 var distChange = false;
+
 // UI
 var edgesText;
 var sceneText;
@@ -340,6 +346,7 @@ function loadModels() {
   edgesText.textContent = 22000 - getEdgeCount();
 
   loadMountainObjs();
+  loadDetails();
   //console.log("mountains:");
   //console.log(mountainObjs);
 }
@@ -362,6 +369,186 @@ function loadMountainObjs() {
 
   }
 }
+
+function loadDetails() {
+
+  var treeCount = 0;
+  var detailNormals = [];
+
+  for (var i = 0; i < 100; i++) {
+
+    var x0 = mountainObjs[i].centerX;
+    var y0 = -0.8;
+    var z0 = mountainObjs[i].centerZ;
+
+    var x1 = x0 + 0.7;
+    var y1 = -0.6;
+    var z1 = z0 + 0.9;
+
+    var x2 = x0 + 0.75;
+    var y2 = -0.8;
+    var z2 = z0 + 0.95;
+
+    var x3 = x0 + 0.75;
+    var y3 = -0.8;
+    var z3 = z0 + 0.85;
+
+    var x4 = x0 + 0.65;
+    var y4 = -0.8;
+    var z4 = z0 + 0.85;
+
+    var x5 = x0 + 0.65;
+    var y5 = -0.8;
+    var z5 = z0 + 0.95;
+
+    detailPositions[i] = [];
+    detailNormals[i] = [];
+
+    detailPositions[i][0] = [
+      x2,  y2,  z2,
+      x1,  y1,  z1,
+      x3,  y3,  z3,
+    ]
+
+    detailPositions[i][1] = [
+      x3,  y3,  z3,
+      x1,  y1,  z1,
+      x4,  y4,  z4,
+    ]
+
+    detailPositions[i][2] = [
+      x4,  y4,  z4,
+      x1,  y1,  z1,
+      x5,  y5,  z5,
+    ]
+
+    detailPositions[i][3] = [
+      x5,  y5,  z5,
+      x1,  y1,  z1,
+      x2,  y2,  z2,
+    ]
+
+    var Ux = x2 - x1;
+    var Uy = y2 - y1;
+    var Uz = z2 - z1;
+
+    var Vx = x3 - x1;
+    var Vy = y3 - y1;
+    var Vz = z3 - z1;
+
+    var Nx = Math.abs((Uy * Vz) - (Uz * Vy));
+    var Ny = Math.abs((Uz * Vx) - (Ux * Vz));
+    var Nz = Math.abs((Ux * Vy) - (Uy * Vx));
+
+    detailNormals[i][0] = [
+      Nx, Ny, Nz,
+      Nx, Ny, Nz,
+      Nx, Ny, Nz,
+    ];
+
+    Ux = x3 - x1;
+    Uy = y3 - y1;
+    Uz = z3 - z1;
+
+    Vx = x4 - x1;
+    Vy = y4 - y1;
+    Vz = z4 - z1;
+
+    Nx = Math.abs((Uy * Vz) - (Uz * Vy));
+    Ny = Math.abs((Uz * Vx) - (Ux * Vz));
+    Nz = Math.abs((Ux * Vy) - (Uy * Vx));
+
+    detailNormals[i][1] = [
+      Nx, Ny, Nz,
+      Nx, Ny, Nz,
+      Nx, Ny, Nz,
+    ];
+
+    Ux = x4 - x1;
+    Uy = y4 - y1;
+    Uz = z4 - z1;
+
+    Vx = x5 - x1;
+    Vy = y5 - y1;
+    Vz = z5 - z1;
+
+    Nx = Math.abs((Uy * Vz) - (Uz * Vy));
+    Ny = Math.abs((Uz * Vx) - (Ux * Vz));
+    Nz = Math.abs((Ux * Vy) - (Uy * Vx));
+
+    detailNormals[i][2] = [
+      Nx, Ny, Nz,
+      Nx, Ny, Nz,
+      Nx, Ny, Nz,
+    ];
+
+    Ux = x5 - x1;
+    Uy = y5 - y1;
+    Uz = z5 - z1;
+
+    Vx = x2 - x1;
+    Vy = y2 - y1;
+    Vz = z2 - z1;
+
+    Nx = Math.abs((Uy * Vz) - (Uz * Vy));
+    Ny = Math.abs((Uz * Vx) - (Ux * Vz));
+    Nz = Math.abs((Ux * Vy) - (Uy * Vx));
+
+    detailNormals[i][3] = [
+      Nx, Ny, Nz,
+      Nx, Ny, Nz,
+      Nx, Ny, Nz,
+    ];
+
+
+    treeObjs[treeCount] = {
+      folds: 0,
+      eliminated: 0,
+      centerX: x1,
+      centerY: y1,
+      centerZ: z1
+    }
+
+    treeCount++;
+  }
+
+  const indices = [ 0,  1,  2 ];
+
+  const uvs = [
+     0,0,  
+     0.5,1,
+     1,0,
+  ];
+
+  for (var i = 0; i < treeCount; i++) {
+
+      for (var j = 0; j < 4; j++) {
+
+        var tIndex = i * 4 + j;
+
+        loadTexture(tIndex,false, detailTextures);
+
+        detailPositionBuffer[tIndex] = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, detailPositionBuffer[tIndex]);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(detailPositions[i][j]), gl.STATIC_DRAW);
+
+        detailNormalsBuffer[tIndex] = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, detailNormalsBuffer[tIndex]);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(detailNormals[i][j]), gl.STATIC_DRAW);
+
+        detailVerticesBuffer[tIndex] = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, detailVerticesBuffer[tIndex]);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+        detailUVBuffer[tIndex] = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, detailUVBuffer[tIndex]);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
+
+      }
+  }
+
+}
+
 
 function shortestEdge(mNum) {
   var shortestEdge = 100;
@@ -2888,6 +3075,10 @@ function applyDistanceFunction() {
   var count = 0;
   for (var i = 0; i < 100; i++) {
 
+    var p0X = treeObjs[i].centerX;
+    var p0Y = treeObjs[i].centerY;
+    var p0Z = treeObjs[i].centerZ;
+
     var p1X = mountainObjs[i].centerX;
     var p1Y = mountainObjs[i].centerY;
     var p1Z = mountainObjs[i].centerZ;
@@ -2906,7 +3097,10 @@ function applyDistanceFunction() {
 
     var d1 = ((p1X - p2X) * (p3Z - p2Z)) - ((p1Z - p2Z) * (p3X - p2X));
     var d2 = ((p1X - p2X) * (p4Z - p2Z)) - ((p1Z - p2Z) * (p4X - p2X));
+    var d3 = ((p0X - p2X) * (p3Z - p2Z)) - ((p0Z - p2Z) * (p3X - p2X));
+    var d4 = ((p0X - p2X) * (p4Z - p2Z)) - ((p0Z - p2Z) * (p4X - p2X));
 
+    // If Mountains ...
     if (p1Z < p2Z) {
       mountainObjs[i].eliminated = 1;
     } 
@@ -2950,6 +3144,23 @@ function applyDistanceFunction() {
         }
       }
     } 
+
+    // If Trees ...
+    if (p0Z < p2Z) {
+      treeObjs[i].eliminated = 1;
+    } 
+
+    else if (d3 > 0 && (p0Z - p2Z) > 2) {
+      treeObjs[i].eliminated = 1;
+    }
+
+    else if (d4 < 0 && (p0Z - p2Z) > 2) {
+      treeObjs[i].eliminated = 1;
+    }
+
+    else {
+      treeObjs[i].eliminated = 0;
+    }
 
   }
   edgesText.textContent = 22000 - getEdgeCount();
@@ -3249,6 +3460,44 @@ function renderModels() {
       // triangle buffer: activate and render
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, groundVerticesBuffer[i]); // activate
       gl.drawElements(gl.TRIANGLES,6,gl.UNSIGNED_SHORT,0); // render
+
+    } 
+
+    // Render Ground
+    for (var i = 0; i < 400; i++) {
+
+      gl.uniform3fv(lightPositionULoc,lightPosition); // pass in the light's position  
+      mat4.multiply(hpvmMatrix,hpvMatrix,mMatrix); // handedness * project * view * model
+      gl.uniformMatrix4fv(mMatrixULoc, false, mMatrix); // pass in the m matrix
+      gl.uniformMatrix4fv(pvmMatrixULoc, false, hpvmMatrix); // pass in the hpvm matrix
+      gl.uniform3fv(lightPositionULoc,lightPosition); // pass in the light's position
+
+      gl.bindBuffer(gl.ARRAY_BUFFER,detailNormalsBuffer[i]); // activate normal
+      gl.vertexAttribPointer(vNormAttribLoc,3,gl.FLOAT,false,0,0); // feed
+
+      var ambient = [0.3,0.3,0.3];
+      diffuse = [0.0,0.404,0.0];
+      var specular = [0.3,0.3,0.3];
+      var n = 0;
+
+      gl.uniform3fv(ambientULoc, ambient); // pass in the ambient reflectivity
+      gl.uniform3fv(diffuseULoc, diffuse); // pass in the diffuse reflectivity
+      gl.uniform3fv(specularULoc, specular); // pass in the specular reflectivity
+      gl.uniform1f(shininessULoc, n); // pass in the specular exponent
+      gl.uniform1i(usingTextureULoc,false); // whether the set uses texture
+      gl.activeTexture(gl.TEXTURE0); // bind to active texture 0 (the first)
+      gl.bindTexture(gl.TEXTURE_2D, detailTextures[i]); // bind the set's texture
+      gl.uniform1i(textureULoc, 0); // pass in the texture and active texture 0
+        
+      // position, normal and uv buffers: activate and feed into vertex shader
+      gl.bindBuffer(gl.ARRAY_BUFFER, detailPositionBuffer[i]); // activate position
+      gl.vertexAttribPointer(vPosAttribLoc,3,gl.FLOAT,false,0,0); // feed
+      gl.bindBuffer(gl.ARRAY_BUFFER,detailUVBuffer[i]); // activate uv
+      gl.vertexAttribPointer(vUVAttribLoc,2,gl.FLOAT,false,0,0); // feed
+
+      // triangle buffer: activate and render
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, detailVerticesBuffer[i]); // activate
+      gl.drawElements(gl.TRIANGLES,3,gl.UNSIGNED_SHORT,0); // render
 
     } 
 
