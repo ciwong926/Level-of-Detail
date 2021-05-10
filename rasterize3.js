@@ -62,6 +62,7 @@ var triangles = 136 * mountains;
 // Edge Collapse
 var edgeObjs = [];
 var triangleObjs = [];
+var mountainObjs = [];
 
 // Vertex Split
 var changes = [];
@@ -73,8 +74,10 @@ var changeCount = [];
 var collapse = false;
 var undo = false;
 
+var sceneMult = 0;
 // UI
 var edgesText;
+var sceneText;
 
 function handleKeyDown(event) {
     
@@ -94,22 +97,26 @@ function handleKeyDown(event) {
             Center = vec3.add(Center,Center,vec3.scale(temp,viewRight,viewDelta));
             Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,viewDelta)); 
             lightPosition = vec3.add(lightPosition,lightPosition,vec3.scale(temp,viewRight,viewDelta)); 
+            applyDistanceFunction();
             break;
         case "ArrowRight": // translate view right, rotate right with shift
         	//Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,-viewDelta)); 
             Center = vec3.add(Center,Center,vec3.scale(temp,viewRight,-viewDelta));
             Eye = vec3.add(Eye,Eye,vec3.scale(temp,viewRight,-viewDelta)); 
             lightPosition = vec3.add(lightPosition,lightPosition,vec3.scale(temp,viewRight,-viewDelta)); 
+            applyDistanceFunction();
             break;
         case "ArrowDown": // translate view backward, rotate up with shift
                 Eye = vec3.add(Eye,Eye,vec3.scale(temp,lookAt,-viewDelta));
                 Center = vec3.add(Center,Center,vec3.scale(temp,lookAt,-viewDelta));
                 lightPosition = vec3.add(lightPosition, lightPosition, vec3.scale(temp,lookAt,-viewDelta));
+                applyDistanceFunction();
             break;
         case "ArrowUp": // translate view forward, rotate down with shift
                 Eye = vec3.add(Eye,Eye,vec3.scale(temp,lookAt,viewDelta));
                 Center = vec3.add(Center,Center,vec3.scale(temp,lookAt,viewDelta));
                 lightPosition = vec3.add(lightPosition, lightPosition, vec3.scale(temp,lookAt,viewDelta));
+                applyDistanceFunction();
             break;
         case "Escape": // reset view to default
             Eye = vec3.copy(Eye,defaultEye);
@@ -143,6 +150,7 @@ function setupWebGL() {
     } // end catch
 
     edgesText = document.querySelector("#edges-text");
+    sceneText = document.querySelector("#scene-text");
  
 } // end setupWebGL
 
@@ -218,9 +226,9 @@ function loadModels() {
 			loadMountain((i * 10 + j) * 136, disX + i + j + 0.5 * i + 0.7 * j, disZ + i + 0.7 * i + 0.7 * j - j);
 		}
 	}
-  console.log(triangleObjs);
+  //console.log(triangleObjs);
   loadEdges();
-  console.log(edgeObjs);
+  //console.log(edgeObjs);
 
   for (var i = 0; i < 100; i++) {
     elimCount[i] = 0;
@@ -229,8 +237,31 @@ function loadModels() {
     changes[i] = [];
   }
 
-  console.log(positions);
+  //console.log(positions);
   edgesText.textContent = 22000 - getEdgeCount();
+
+  loadMountainObjs();
+  //console.log("mountains:");
+  //console.log(mountainObjs);
+}
+
+function loadMountainObjs() {
+
+  for (var i = 0; i < 100; i++) {
+
+    var p1X = triangleObjs[i][0].triP1X;
+    var p1Y = triangleObjs[i][0].triP1Y;
+    var p1Z = triangleObjs[i][0].triP1Z;
+
+    mountainObjs[i] = {
+      folds: 0,
+      eliminated: 0,
+      centerX: p1X,
+      centerY: p1Y,
+      centerZ: p1Z
+    }
+
+  }
 }
 
 function shortestEdge(mNum) {
@@ -2752,6 +2783,80 @@ function setupShaders() {
     } // end catch
 }
 
+function applyDistanceFunction() {
+  //console.log(Eye);
+  var count = 0;
+  for (var i = 0; i < 100; i++) {
+
+    var p1X = mountainObjs[i].centerX;
+    var p1Y = mountainObjs[i].centerY;
+    var p1Z = mountainObjs[i].centerZ;
+
+    var p2X = Eye[0];
+    var p2Y = Eye[1];
+    var p2Z = Eye[2];
+
+    var p3X = Eye[0] + 25;
+    var p3Y = Eye[1];
+    var p3Z = Eye[2] + 20;
+
+    var p4X = Eye[0] - 25;
+    var p4Y = Eye[1];
+    var p4Z = Eye[2] + 20;
+
+    var d1 = ((p1X - p2X) * (p3Z - p2Z)) - ((p1Z - p2Z) * (p3X - p2X));
+    var d2 = ((p1X - p2X) * (p4Z - p2Z)) - ((p1Z - p2Z) * (p4X - p2X));
+
+    if (p1Z < p2Z) {
+      mountainObjs[i].eliminated = 1;
+    } 
+
+    else if (d1 > 0 && (p1Z - p2Z) > 2) {
+      mountainObjs[i].eliminated = 1;
+    }
+
+    else if (d2 < 0 && (p1Z - p2Z) > 2) {
+      mountainObjs[i].eliminated = 1;
+    }
+
+    else {
+      mountainObjs[i].eliminated = 0;
+      var dist = distance(p1X, p1Y, p1Z, p2X, p2Y, p2Z);
+      //console.log("mountain: " + i + "  distance: " + dist);
+      var foldsFloor = Math.floor(dist);
+      foldsFloor*=1;
+      //console.log(foldsFloor);
+      //console.log(mountainObjs[i].folds);
+    
+      if(foldsFloor > mountainObjs[i].folds) {
+        //console.log("more collapses");
+        while(foldsFloor > mountainObjs[i].folds) {
+          //console.log(mountainObjs[i].folds);
+          //for (var j = 0; j < 10; j++) {
+          collapseMountain(i);
+          loadEdges();
+          //}
+          mountainObjs[i].folds++;
+          count++;
+        }
+      }
+
+      else if(foldsFloor < mountainObjs[i].folds) {
+        //console.log("less collapses");
+        while(foldsFloor < mountainObjs[i].folds) {
+          splitMountain(i);
+          loadEdges();
+          mountainObjs[i].folds--;
+        }
+      }
+    } 
+
+  }
+  edgesText.textContent = 22000 - getEdgeCount();
+  //console.log(getEdgeCount());
+  //console.log(count);
+}
+
 function getEdgeCount() {
   var sum = 0;
   for (var i = 0; i < 100; i++) {
@@ -2766,6 +2871,10 @@ function collapseMountain(i) {
 
   // Retrieve Change Count
   var cCount = changeCount[i];
+
+  if (eCount == 81) {
+    return;
+  }
 
   // Find Shortest Edge Of Each Mountain ...
   var edgeIndex = shortestEdge(i); 
@@ -3048,7 +3157,8 @@ function renderModels() {
       var mNum = Math.floor(i/136);
       var tNum = i%136;
 
-      if (triangleObjs[mNum][tNum].eliminated == 0) {
+      //console.log(mountainObjs[mNum]);
+      if (triangleObjs[mNum][tNum].eliminated == 0 && mountainObjs[mNum].eliminated == 0) {
 
         gl.uniform3fv(lightPositionULoc,lightPosition); // pass in the light's position  
         mat4.multiply(hpvmMatrix,hpvMatrix,mMatrix); // handedness * project * view * model
@@ -3103,11 +3213,12 @@ function renderModels() {
         splitMountain(i);
       }  
 
+      sceneMult--;
       // After Split
       undo = false;
       loadEdges();
       edgesText.textContent = 22000 - getEdgeCount();
-
+      sceneText.textContent = sceneMult;
     } // end undo
 
     // If Collapse ...
@@ -3118,11 +3229,12 @@ function renderModels() {
         collapseMountain(i);
       }  
 
+      sceneMult++;
       // After Collapse ...
       collapse = false; // Collapse Is False
       loadEdges();
       edgesText.textContent = 22000 - getEdgeCount();
-
+      sceneText.textContent = sceneMult;
     } // ends collapse
 } // end render models 
 
@@ -3133,6 +3245,7 @@ function main() {
   setupWebGL(); // set up the webGL environment
   loadModels(); // load in the models from tri file
   setupShaders(); 
+  applyDistanceFunction();
   renderModels(); // draw the triangles using webGL
   
 } // end main

@@ -2958,6 +2958,8 @@ function renderModels() {
       edgesText.textContent = 220 - edges.length;
     } 
   }
+
+ 
     
 
 /* MAIN -- HERE is where execution begins after window load */

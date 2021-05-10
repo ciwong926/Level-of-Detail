@@ -14,7 +14,7 @@
       #cc {
         position: relative;
         top: 0;
-        left: 0;
+        left: 20px;
         margin: 50px;
       }
       .container {
@@ -40,21 +40,51 @@
       {
         position: relative;
         display : inline-block;
-        color: white;
         font-size: 20px;
-        left: 70px;
-        top: 640px;
+        left: 20px;
+      }
+
+      #scene-label
+      {
+        position: relative;
+        display : inline-block;
+        font-size: 20px;
+        left: 20px;
+      }
+
+      #dist-label
+      {
+        position: relative;
+        display : inline-block;
+        font-size: 20px;
+        left: 20px;
+      }
+
+      #dist-text
+      {
+        position: relative;
+        display : inline-block;
+        font-size: 24px;
+        font-weight: bold;
+        left: 50px;
+      }
+
+      #scene-text
+      {
+        position: relative;
+        display : inline-block;
+        font-size: 24px;
+        font-weight: bold;
+        left: 50px;
       }
 
       #edges-text
       {
         position: relative;
         display : inline-block;
-        color: white;
         font-size: 24px;
         font-weight: bold;
-        left: 100px;
-        top: 640px;
+        left: 50px;
       }
 
       #merge-button {
@@ -64,8 +94,7 @@
         font-weight: bold;
         margin : auto;
         padding : 0.6em;
-        top: 640px;
-        left: 240px;
+        left: 180px;
       }
 
       #split-button {
@@ -75,9 +104,91 @@
         font-weight: bold;
         margin : auto;
         padding : 0.6em;
-        top: 640px;
-        left: 240px;
+        left: 180px;
       }
+
+      #num-1-button {
+        position: relative;
+        display : inline-block;
+        font-size: 16px;
+        font-weight: bold;
+        margin : auto;
+        padding : 0.6em;
+        left: 180px;
+      }
+
+      #num-2-button {
+        position: relative;
+        display : inline-block;
+        font-size: 16px;
+        font-weight: bold;
+        margin : auto;
+        padding : 0.6em;
+        left: 180px;
+      }
+
+      #num-5-button {
+        position: relative;
+        display : inline-block;
+        font-size: 16px;
+        font-weight: bold;
+        margin : auto;
+        padding : 0.6em;
+        left: 180px;
+      }
+
+      #num-10-button {
+        position: relative;
+        display : inline-block;
+        font-size: 16px;
+        font-weight: bold;
+        margin : auto;
+        padding : 0.6em;
+        left: 180px;
+      }
+
+      #num-15-button {
+        position: relative;
+        display : inline-block;
+        font-size: 16px;
+        font-weight: bold;
+        margin : auto;
+        padding : 0.6em;
+        left: 180px;
+      }
+
+      #div-1 {
+        position: relative;
+        top: 620px;
+        left: 50px;
+        width: 660px;
+        background-color: #E8E8E8;
+      }
+
+      #div-2 {
+        position: relative;
+        top: 630px;
+        left: 50px;
+        width: 660px;
+        background-color: #E8E8E8;
+      }
+
+      #div-3 {
+        position: relative;
+        top: 640px;
+        left: 50px;
+        width: 660px;
+        background-color: #E8E8E8;
+      }
+
+      #div-4 {
+        position: relative;
+        top: 650px;
+        left: 50px;
+        width: 59%;
+        height: 50px;
+      }
+
     </style>
   </head>
 
@@ -92,10 +203,27 @@
        
     </div> 
 
-    <h3 id="edges-label">Edges Collapsed:</h3>
-    <h3 id="edges-text"> 0 </h3>
-    <button id="merge-button">Edge Collapse</button>
-    <button id="split-button">Vertex Split</button>
+    <div id= "div-1">
+      <h3 id="edges-label">Edges Collapsed:</h3>
+      <h3 id="edges-text"> 0 </h3>
+      <button id="merge-button">Edge Collapse</button>
+      <button id="split-button">Vertex Split</button>
+    </div>
+    <div id= "div-2">
+      <h3 id="scene-label">Scene Collapse Multiplier:</h3>
+      <h3 id="scene-text"> 0 </h3>
+    </div> 
+    <div id= "div-3">
+      <h3 id="dist-label">Collapses Per Square Unit:</h3>
+      <h3 id="dist-text"> 1 </h3>
+      <button id="num-1-button">1</button>
+      <button id="num-2-button">2</button>
+      <button id="num-5-button">5</button>
+      <button id="num-10-button">10</button>
+      <button id="num-2-button">15</button>
+    </div>   
+    <div id= "div-4">
+    </div>   
 
     <!-- <div class="container">
 
