@@ -75,9 +75,12 @@ var collapse = false;
 var undo = false;
 
 var sceneMult = 0;
+var distMult = 1;
+var distChange = false;
 // UI
 var edgesText;
 var sceneText;
+var distText;
 
 function handleKeyDown(event) {
     
@@ -151,6 +154,7 @@ function setupWebGL() {
 
     edgesText = document.querySelector("#edges-text");
     sceneText = document.querySelector("#scene-text");
+    distText = document.querySelector("#dist-text");
  
 } // end setupWebGL
 
@@ -177,6 +181,101 @@ window.addEventListener("load", function setupWebGL (evt) {
   button.addEventListener("click", split, false);
 
 }, false);
+
+window.addEventListener("load", function setupWebGL (evt) {
+  "use strict"
+
+  window.removeEventListener(evt.type, setupWebGL, false);
+
+  var canvas = document.getElementById("myWebGLCanvas"); 
+  var button = document.querySelector("#num-1-button");
+  //canvas.addEventListener("click", changeDistMult1, false);
+  button.addEventListener("click", changeDistMult1, false);
+
+}, false);
+
+window.addEventListener("load", function setupWebGL (evt) {
+  "use strict"
+
+  window.removeEventListener(evt.type, setupWebGL, false);
+
+  var canvas = document.getElementById("myWebGLCanvas"); 
+  var button = document.querySelector("#num-2-button");
+  //canvas.addEventListener("click", changeDistMult2, false);
+  button.addEventListener("click", changeDistMult2, false);
+
+}, false);
+
+window.addEventListener("load", function setupWebGL (evt) {
+  "use strict"
+
+  window.removeEventListener(evt.type, setupWebGL, false);
+
+  var canvas = document.getElementById("myWebGLCanvas"); 
+  var button = document.querySelector("#num-5-button");
+  //canvas.addEventListener("click", changeDistMult5, false);
+  button.addEventListener("click", changeDistMult5, false);
+
+}, false);
+
+window.addEventListener("load", function setupWebGL (evt) {
+  "use strict"
+
+  window.removeEventListener(evt.type, setupWebGL, false);
+
+  var canvas = document.getElementById("myWebGLCanvas"); 
+  var button = document.querySelector("#num-10-button");
+  //canvas.addEventListener("click", changeDistMult10, false);
+  button.addEventListener("click", changeDistMult10, false);
+
+}, false);
+
+window.addEventListener("load", function setupWebGL (evt) {
+  "use strict"
+
+  window.removeEventListener(evt.type, setupWebGL, false);
+
+  var canvas = document.getElementById("myWebGLCanvas"); 
+  var button = document.querySelector("#num-15-button");
+  //canvas.addEventListener("click", changeDistMult15, false);
+  button.addEventListener("click", changeDistMult15, false);
+
+}, false);
+
+function changeDistMult1() {
+  console.log("1 pressed ... ");
+  distMult = 1;
+  //distChange = true;
+  distText.textContent = "Loading ...";
+}
+
+function changeDistMult2() {
+  console.log("2 pressed ... ");
+  distMult = 2;
+  //distChange = true;
+  distText.textContent = "Loading ...";
+}
+
+function changeDistMult5() {
+  console.log("5 pressed ... ");
+  distMult = 5;
+  //distChange = true;
+  distText.textContent = "Loading ...";
+}
+
+function changeDistMult10() {
+  console.log("10 pressed ... ");
+  distMult = 10;
+  //distChange = true;
+  distText.textContent = "Loading ...";
+}
+
+function changeDistMult15() {
+  console.log("15 pressed ... ");
+  distMult = 15;
+  //distChange = true;
+  distText.textContent = "Loading ...";
+}
 
 function loadTexture(whichModel,textureFile,texts) {
         
@@ -2783,6 +2882,7 @@ function setupShaders() {
     } // end catch
 }
 
+
 function applyDistanceFunction() {
   //console.log(Eye);
   var count = 0;
@@ -2824,7 +2924,7 @@ function applyDistanceFunction() {
       var dist = distance(p1X, p1Y, p1Z, p2X, p2Y, p2Z);
       //console.log("mountain: " + i + "  distance: " + dist);
       var foldsFloor = Math.floor(dist);
-      foldsFloor*=1;
+      foldsFloor*=distMult;
       //console.log(foldsFloor);
       //console.log(mountainObjs[i].folds);
     
@@ -2853,6 +2953,7 @@ function applyDistanceFunction() {
 
   }
   edgesText.textContent = 22000 - getEdgeCount();
+  distText.textContent = distMult;
   //console.log(getEdgeCount());
   //console.log(count);
 }
@@ -3204,6 +3305,11 @@ function renderModels() {
       }
 
     } // end for every mountain
+
+    /*if (distChange == true) {
+      applyDistanceFunction();
+      distChange = false;
+    }*/
 
     // If Vertex Split ...
     if (undo) {

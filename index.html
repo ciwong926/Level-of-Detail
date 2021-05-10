@@ -42,6 +42,24 @@
         z-index: 10;
       }
 
+      #warning-label
+      {
+        position: relative;
+        display : inline-block;
+        font-size: 16px;
+        color: rgb(139,0,0);
+        left: 16px;
+      }
+
+      #inst-label
+      {
+        position: relative;
+        display : inline-block;
+        font-size: 16px;
+        color: rgb(0,0,0);
+        left: 20px;
+      }
+
       #edges-label
       {
         position: relative;
@@ -184,12 +202,34 @@
         top: 655px;
         left: 50px;
         width: 660px;
-        background-color: #E8E8E8;
+        background-color: #F2F2F2;
+        border-style: solid;
+        border-color: #E8E8E8; 
+        border-width: 5px;
       }
 
       #div-4 {
         position: relative;
         top: 665px;
+        left: 50px;
+        width: 660px;
+        background-color: #E8E8E8;
+      }
+
+      #div-5 {
+        position: relative;
+        top: 675px;
+        left: 50px;
+        width: 660px;
+        background-color: #F2F2F2;
+        border-style: solid;
+        border-color: red; 
+        border-width: 5px;
+      }
+
+      #div-6 {
+        position: relative;
+        top: 685px;
         left: 50px;
         width: 59%;
         height: 50px;
@@ -222,15 +262,21 @@
       <h3 id="scene-text"> 0 </h3>
     </div> 
     <div id= "div-3">
+      <h3 id="inst-label"> To Update Distance Function Click A Button Below Then Hit An Arrow Key! </h3>
+    </div>
+    <div id= "div-4">
       <h3 id="dist-label">Collapses Per Square Unit:</h3>
       <h3 id="dist-text"> 1 </h3>
       <button id="num-1-button">1</button>
       <button id="num-2-button">2</button>
       <button id="num-5-button">5</button>
       <button id="num-10-button">10</button>
-      <button id="num-2-button">15</button>
+      <button id="num-15-button">15</button>
     </div>   
-    <div id= "div-4">
+    <div id= "div-5">
+      <h3 id="warning-label"> Distance Function Can Take Up To A Minute & A Half To Load! </h3>
+    </div>  
+     <div id= "div-6">
     </div>   
 
     <!-- <div class="container">
